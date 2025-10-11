@@ -308,30 +308,187 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-// Handle CSV Export
-if (isset($_GET['export']) && $_GET['export'] === 'csv') {
+// Handle Export Requests
+if (isset($_GET['export'])) {
     $expenses = loadExpenses();
+    $exportType = $_GET['export'];
+    $filename = 'expenses_' . date('Y-m-d');
     
-    header('Content-Type: text/csv');
-    header('Content-Disposition: attachment; filename="expenses_' . date('Y-m-d') . '.csv"');
-    
-    $output = fopen('php://output', 'w');
-    
-    // CSV Headers
-    fputcsv($output, ['Date', 'Category', 'Description', 'Amount', 'Created At']);
-    
-    // CSV Data
-    foreach ($expenses as $expense) {
-        fputcsv($output, [
-            $expense['date'],
-            $expense['category_name'] ?? $expense['category'],
-            $expense['description'],
-            number_format($expense['amount'], 2),
-            $expense['created_at']
-        ]);
+    switch ($exportType) {
+        case 'csv':
+            header('Content-Type: text/csv');
+            header('Content-Disposition: attachment; filename="' . $filename . '.csv"');
+            
+            $output = fopen('php://output', 'w');
+            fputcsv($output, ['Date', 'Category', 'Description', 'Amount', 'Created At']);
+            
+            foreach ($expenses as $expense) {
+                fputcsv($output, [
+                    $expense['date'],
+                    $expense['category_name'] ?? $expense['category'],
+                    $expense['description'],
+                    number_format($expense['amount'], 2),
+                    $expense['created_at']
+                ]);
+            }
+            
+            fclose($output);
+            break;
+            
+        case 'json':
+            header('Content-Type: application/json');
+            header('Content-Disposition: attachment; filename="' . $filename . '.json"');
+            
+            $exportData = [
+                'export_date' => date('Y-m-d H:i:s'),
+                'total_expenses' => count($expenses),
+                'total_amount' => array_sum(array_column($expenses, 'amount')),
+                'expenses' => array_map(function($expense) {
+                    return [
+                        'id' => $expense['id'],
+                        'date' => $expense['date'],
+                        'category' => $expense['category'],
+                        'category_name' => $expense['category_name'] ?? $expense['category'],
+                        'description' => $expense['description'],
+                        'amount' => floatval($expense['amount']),
+                        'created_at' => $expense['created_at']
+                    ];
+                }, $expenses)
+            ];
+            
+            echo json_encode($exportData, JSON_PRETTY_PRINT);
+            break;
+            
+        case 'xml':
+            header('Content-Type: application/xml');
+            header('Content-Disposition: attachment; filename="' . $filename . '.xml"');
+            
+            $xml = new SimpleXMLElement('<?xml version="1.0" encoding="UTF-8"?><expenses></expenses>');
+            $xml->addAttribute('export_date', date('Y-m-d H:i:s'));
+            $xml->addAttribute('total_count', count($expenses));
+            $xml->addAttribute('total_amount', array_sum(array_column($expenses, 'amount')));
+            
+            foreach ($expenses as $expense) {
+                $expenseNode = $xml->addChild('expense');
+                $expenseNode->addChild('id', htmlspecialchars($expense['id']));
+                $expenseNode->addChild('date', $expense['date']);
+                $expenseNode->addChild('category', htmlspecialchars($expense['category']));
+                $expenseNode->addChild('category_name', htmlspecialchars($expense['category_name'] ?? $expense['category']));
+                $expenseNode->addChild('description', htmlspecialchars($expense['description']));
+                $expenseNode->addChild('amount', number_format($expense['amount'], 2));
+                $expenseNode->addChild('created_at', $expense['created_at']);
+            }
+            
+            echo $xml->asXML();
+            break;
+            
+        case 'excel':
+            header('Content-Type: application/vnd.ms-excel');
+            header('Content-Disposition: attachment; filename="' . $filename . '.xls"');
+            
+            echo '<?xml version="1.0" encoding="UTF-8"?>' . "\n";
+            echo '<?mso-application progid="Excel.Sheet"?>' . "\n";
+            echo '<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"' . "\n";
+            echo '    xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">' . "\n";
+            echo '  <Worksheet ss:Name="Expenses">' . "\n";
+            echo '    <Table>' . "\n";
+            
+            // Header row
+            echo '      <Row>' . "\n";
+            echo '        <Cell><Data ss:Type="String">Date</Data></Cell>' . "\n";
+            echo '        <Cell><Data ss:Type="String">Category</Data></Cell>' . "\n";
+            echo '        <Cell><Data ss:Type="String">Description</Data></Cell>' . "\n";
+            echo '        <Cell><Data ss:Type="String">Amount</Data></Cell>' . "\n";
+            echo '        <Cell><Data ss:Type="String">Created At</Data></Cell>' . "\n";
+            echo '      </Row>' . "\n";
+            
+            // Data rows
+            foreach ($expenses as $expense) {
+                echo '      <Row>' . "\n";
+                echo '        <Cell><Data ss:Type="String">' . htmlspecialchars($expense['date']) . '</Data></Cell>' . "\n";
+                echo '        <Cell><Data ss:Type="String">' . htmlspecialchars($expense['category_name'] ?? $expense['category']) . '</Data></Cell>' . "\n";
+                echo '        <Cell><Data ss:Type="String">' . htmlspecialchars($expense['description']) . '</Data></Cell>' . "\n";
+                echo '        <Cell><Data ss:Type="Number">' . number_format($expense['amount'], 2) . '</Data></Cell>' . "\n";
+                echo '        <Cell><Data ss:Type="String">' . htmlspecialchars($expense['created_at']) . '</Data></Cell>' . "\n";
+                echo '      </Row>' . "\n";
+            }
+            
+            echo '    </Table>' . "\n";
+            echo '  </Worksheet>' . "\n";
+            echo '</Workbook>';
+            break;
+            
+        case 'pdf':
+            header('Content-Type: text/html');
+            header('Content-Disposition: inline; filename="' . $filename . '.html"');
+            
+            $stats = getExpenseStats();
+            
+            echo '<!DOCTYPE html><html><head>';
+            echo '<meta charset="UTF-8">';
+            echo '<title>Expense Report - ' . date('Y-m-d') . '</title>';
+            echo '<style>
+                body { font-family: Arial, sans-serif; padding: 40px; max-width: 1000px; margin: 0 auto; }
+                h1 { color: #667eea; border-bottom: 3px solid #667eea; padding-bottom: 10px; }
+                .summary { background: #f7fafc; padding: 20px; border-radius: 8px; margin: 20px 0; }
+                .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; }
+                .summary-item { background: white; padding: 15px; border-radius: 5px; border-left: 4px solid #667eea; }
+                .summary-label { color: #718096; font-size: 0.9em; }
+                .summary-value { font-size: 1.5em; font-weight: bold; color: #2d3748; }
+                table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+                th { background: #667eea; color: white; padding: 12px; text-align: left; }
+                td { padding: 10px; border-bottom: 1px solid #e2e8f0; }
+                tr:hover { background: #f7fafc; }
+                .amount { color: #f56565; font-weight: bold; }
+                .category { display: inline-block; padding: 4px 10px; border-radius: 15px; font-size: 0.85em; }
+                .footer { margin-top: 40px; padding-top: 20px; border-top: 2px solid #e2e8f0; color: #718096; text-align: center; }
+                @media print { body { padding: 20px; } }
+            </style>';
+            echo '</head><body>';
+            echo '<h1>💰 Expense Report</h1>';
+            echo '<p><strong>Generated:</strong> ' . date('F d, Y h:i A') . '</p>';
+            
+            echo '<div class="summary">';
+            echo '<h2>Summary Statistics</h2>';
+            echo '<div class="summary-grid">';
+            echo '<div class="summary-item"><div class="summary-label">Total Expenses</div><div class="summary-value">$' . number_format($stats['total'], 2) . '</div></div>';
+            echo '<div class="summary-item"><div class="summary-label">This Month</div><div class="summary-value">$' . number_format($stats['monthly'], 2) . '</div></div>';
+            echo '<div class="summary-item"><div class="summary-label">Transactions</div><div class="summary-value">' . $stats['count'] . '</div></div>';
+            echo '<div class="summary-item"><div class="summary-label">Average</div><div class="summary-value">$' . number_format($stats['average'], 2) . '</div></div>';
+            echo '</div></div>';
+            
+            echo '<h2>Expense Details</h2>';
+            echo '<table>';
+            echo '<thead><tr><th>Date</th><th>Category</th><th>Description</th><th>Amount</th></tr></thead>';
+            echo '<tbody>';
+            
+            foreach ($expenses as $expense) {
+                $catName = htmlspecialchars($expense['category_name'] ?? $expense['category']);
+                $desc = htmlspecialchars($expense['description']);
+                $amount = number_format($expense['amount'], 2);
+                
+                echo '<tr>';
+                echo '<td>' . date('M d, Y', strtotime($expense['date'])) . '</td>';
+                echo '<td><span class="category">' . $catName . '</span></td>';
+                echo '<td>' . $desc . '</td>';
+                echo '<td class="amount">$' . $amount . '</td>';
+                echo '</tr>';
+            }
+            
+            echo '</tbody></table>';
+            echo '<div class="footer">';
+            echo '<p>This report contains ' . count($expenses) . ' expense entries.</p>';
+            echo '<p><em>Tip: Use your browser\'s print function (Ctrl+P / Cmd+P) to save as PDF.</em></p>';
+            echo '</div>';
+            echo '</body></html>';
+            break;
+            
+        default:
+            header('HTTP/1.1 400 Bad Request');
+            echo 'Invalid export format';
+            break;
     }
     
-    fclose($output);
     exit;
 }
 
@@ -680,6 +837,75 @@ foreach ($categoryBreakdown as $cat) {
             border-top: 2px solid var(--border);
         }
         
+        .export-buttons {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+            gap: 10px;
+        }
+        
+        .btn-export {
+            padding: 10px 15px;
+            font-size: 0.9rem;
+            text-align: center;
+            transition: all 0.3s ease;
+            border: 2px solid transparent;
+        }
+        
+        .btn-csv {
+            background: linear-gradient(135deg, #48bb78, #38a169);
+            color: white;
+        }
+        
+        .btn-csv:hover {
+            background: linear-gradient(135deg, #38a169, #2f855a);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(72, 187, 120, 0.4);
+        }
+        
+        .btn-json {
+            background: linear-gradient(135deg, #4299e1, #3182ce);
+            color: white;
+        }
+        
+        .btn-json:hover {
+            background: linear-gradient(135deg, #3182ce, #2c5282);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(66, 153, 225, 0.4);
+        }
+        
+        .btn-excel {
+            background: linear-gradient(135deg, #48bb78, #38a169);
+            color: white;
+        }
+        
+        .btn-excel:hover {
+            background: linear-gradient(135deg, #38a169, #2f855a);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(72, 187, 120, 0.4);
+        }
+        
+        .btn-xml {
+            background: linear-gradient(135deg, #ed8936, #dd6b20);
+            color: white;
+        }
+        
+        .btn-xml:hover {
+            background: linear-gradient(135deg, #dd6b20, #c05621);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(237, 137, 54, 0.4);
+        }
+        
+        .btn-pdf {
+            background: linear-gradient(135deg, #f56565, #e53e3e);
+            color: white;
+        }
+        
+        .btn-pdf:hover {
+            background: linear-gradient(135deg, #e53e3e, #c53030);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(245, 101, 101, 0.4);
+        }
+        
         .alert {
             padding: 15px 20px;
             border-radius: 8px;
@@ -799,6 +1025,15 @@ foreach ($categoryBreakdown as $cat) {
             .chart-container {
                 height: 300px;
             }
+            
+            .export-buttons {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            .btn-export {
+                font-size: 0.85rem;
+                padding: 8px 10px;
+            }
         }
         
         /* Loading animation */
@@ -910,9 +1145,24 @@ foreach ($categoryBreakdown as $cat) {
                 </div>
                 
                 <div class="export-section">
-                    <a href="?export=csv" class="btn btn-success">
-                        📥 Export to CSV
-                    </a>
+                    <h3 style="margin-bottom: 15px; font-size: 1rem; color: var(--dark);">📤 Export Data</h3>
+                    <div class="export-buttons">
+                        <a href="?export=csv" class="btn btn-export btn-csv" title="Export as CSV file">
+                            📊 CSV
+                        </a>
+                        <a href="?export=json" class="btn btn-export btn-json" title="Export as JSON file">
+                            📋 JSON
+                        </a>
+                        <a href="?export=excel" class="btn btn-export btn-excel" title="Export as Excel file">
+                            📗 Excel
+                        </a>
+                        <a href="?export=xml" class="btn btn-export btn-xml" title="Export as XML file">
+                            📄 XML
+                        </a>
+                        <a href="?export=pdf" class="btn btn-export btn-pdf" title="Export as printable report" target="_blank">
+                            📕 PDF
+                        </a>
+                    </div>
                 </div>
             </div>
         </div>
