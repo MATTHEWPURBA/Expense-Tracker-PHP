@@ -1,30 +1,71 @@
-/vendor/
-node_modules/
-npm-debug.log
-yarn-error.log
+# Expense Tracker - Git Ignore File
 
-# Laravel 4 specific
-bootstrap/compiled.php
-app/storage/
+# Data files (user expenses - private)
+data/*.json
+data/
 
-# Laravel 5 & Lumen specific
-public/storage
-public/hot
+# System files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+*~
 
-# Laravel 5 & Lumen specific with changed public path
-public_html/storage
-public_html/hot
+# IDE and Editor files
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+*.swp
+*.swo
+*.swn
+.project
+.settings/
+nbproject/
 
-storage/*.key
+# Backup files
+*.bak
+*.backup
+*.old
+.htaccess.bak
+
+# Logs
+*.log
+error_log
+debug.log
+
+# Temporary files
+*.tmp
+*.temp
+tmp/
+temp/
+
+# OS generated files
+desktop.ini
+
+# Configuration files with sensitive data
+config.php
+
+# Environment files (if you add any)
 .env
-Homestead.yaml
-Homestead.json
-/.vagrant
-.phpunit.result.cache
-
-/public/build
-/storage/pail
-.env.backup
+.env.local
 .env.production
-.phpactor.json
-auth.json
+
+# Composer (if you add dependencies)
+/vendor/
+composer.lock
+
+# Node modules (if you add any)
+node_modules/
+package-lock.json
+
+# Build files
+dist/
+build/
+
+# Cache
+cache/
+*.cache
