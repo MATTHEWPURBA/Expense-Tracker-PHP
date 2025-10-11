@@ -59,11 +59,10 @@ function registerUser($username, $email, $password) {
     try {
         $pdo = getDBConnection();
         
-        // Check if email already exists (using existing table structure)
-        $stmt = $pdo->prepare("SELECT id FROM users WHERE email = ?");
-        $stmt->execute([$email]);
-        if ($stmt->fetch()) {
-            return ['success' => false, 'error' => 'Email already exists'];
+        // Check if username or email already exists
+        $checkResult = checkUserExists($username, $email);
+        if ($checkResult['exists']) {
+            return ['success' => false, 'error' => $checkResult['message']];
         }
         
         // Hash password
@@ -87,24 +86,24 @@ function registerUser($username, $email, $password) {
 }
 
 /**
- * Login user
+ * Login user (accepts both name and email)
  */
-function loginUser($username, $password) {
+function loginUser($usernameOrEmail, $password) {
     try {
         $pdo = getDBConnection();
         
-        // Get user by name (using existing table structure)
-        $stmt = $pdo->prepare("SELECT id, name, email, password FROM users WHERE name = ?");
-        $stmt->execute([$username]);
+        // Try to find user by name first, then by email
+        $stmt = $pdo->prepare("SELECT id, name, email, password FROM users WHERE name = ? OR email = ?");
+        $stmt->execute([$usernameOrEmail, $usernameOrEmail]);
         $user = $stmt->fetch();
         
         if (!$user) {
-            return ['success' => false, 'error' => 'Invalid username or password'];
+            return ['success' => false, 'error' => 'Invalid username/email or password'];
         }
         
         // Verify password
         if (!password_verify($password, $user['password'])) {
-            return ['success' => false, 'error' => 'Invalid username or password'];
+            return ['success' => false, 'error' => 'Invalid username/email or password'];
         }
         
         // Set session variables
@@ -178,6 +177,34 @@ function validateUsername($username) {
     }
     
     return ['valid' => true];
+}
+
+/**
+ * Check if username or email already exists
+ */
+function checkUserExists($username, $email) {
+    try {
+        $pdo = getDBConnection();
+        
+        // Check if name already exists
+        $stmt = $pdo->prepare("SELECT id FROM users WHERE name = ?");
+        $stmt->execute([$username]);
+        if ($stmt->fetch()) {
+            return ['exists' => true, 'type' => 'name', 'message' => 'This name is already taken'];
+        }
+        
+        // Check if email already exists
+        $stmt = $pdo->prepare("SELECT id FROM users WHERE email = ?");
+        $stmt->execute([$email]);
+        if ($stmt->fetch()) {
+            return ['exists' => true, 'type' => 'email', 'message' => 'This email is already registered'];
+        }
+        
+        return ['exists' => false];
+    } catch (Exception $e) {
+        error_log("User check failed: " . $e->getMessage());
+        return ['exists' => false, 'error' => 'Unable to verify user information'];
+    }
 }
 
 /**

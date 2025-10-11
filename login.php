@@ -159,13 +159,13 @@ if (isset($_GET['logout'])) {
 
 // Handle login
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $username = sanitizeInput($_POST['username'] ?? '');
+    $usernameOrEmail = sanitizeInput($_POST['username'] ?? '');
     $password = $_POST['password'] ?? '';
     
-    if (empty($username) || empty($password)) {
-        $error = 'Please enter both username and password';
+    if (empty($usernameOrEmail) || empty($password)) {
+        $error = 'Please enter both username/email and password';
     } else {
-        $result = loginUser($username, $password);
+        $result = loginUser($usernameOrEmail, $password);
         
         if ($result['success']) {
             header('Location: index.php');
@@ -384,16 +384,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         <form method="POST" action="">
             <div class="form-group">
-                <label for="username">Full Name</label>
+                <label for="username">Full Name or Email</label>
                 <input 
                     type="text" 
                     id="username" 
                     name="username" 
                     required 
-                    autocomplete="name"
-                    placeholder="Enter your full name"
+                    autocomplete="username"
+                    placeholder="Enter your username or email"
                     value="<?php echo isset($_POST['username']) ? htmlspecialchars($_POST['username']) : ''; ?>"
                 >
+                <div class="password-requirements">You can login with either your full name or email address</div>
             </div>
             
             <div class="form-group">
