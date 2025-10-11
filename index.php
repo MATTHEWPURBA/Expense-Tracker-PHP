@@ -8,6 +8,9 @@
  * @license MIT
  */
 
+// Start session
+session_start();
+
 // Error handling for production
 error_reporting(0);
 ini_set('display_errors', 0);
@@ -24,6 +27,12 @@ if (!file_exists($config_file)) {
 }
 
 $config = require_once $config_file;
+
+// Load authentication functions
+require_once __DIR__ . '/auth.php';
+
+// Require user to be logged in
+requireLogin();
 
 // Database Configuration
 define('DB_HOST', $config['db_host']);
@@ -80,6 +89,18 @@ function initializeDatabase() {
     try {
         $pdo = getDBConnection();
         
+        // Create users table
+        $pdo->exec("
+            CREATE TABLE IF NOT EXISTS users (
+                id VARCHAR(50) PRIMARY KEY,
+                username VARCHAR(50) UNIQUE NOT NULL,
+                email VARCHAR(100) UNIQUE NOT NULL,
+                password VARCHAR(255) NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                last_login TIMESTAMP
+            )
+        ");
+        
         // Create categories table
         $pdo->exec("
             CREATE TABLE IF NOT EXISTS categories (
@@ -91,15 +112,17 @@ function initializeDatabase() {
             )
         ");
         
-        // Create expenses table
+        // Create expenses table with user_id
         $pdo->exec("
             CREATE TABLE IF NOT EXISTS expenses (
                 id VARCHAR(50) PRIMARY KEY,
+                user_id VARCHAR(50) NOT NULL,
                 amount DECIMAL(10,2) NOT NULL,
                 category VARCHAR(50) NOT NULL,
                 description TEXT,
                 date DATE NOT NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
                 FOREIGN KEY (category) REFERENCES categories(id) ON DELETE CASCADE
             )
         ");
@@ -140,13 +163,15 @@ initializeDatabase();
 function loadExpenses() {
     try {
         $pdo = getDBConnection();
+        $userId = getCurrentUserId();
         $stmt = $pdo->prepare("
             SELECT e.*, c.name as category_name, c.color, c.icon 
             FROM expenses e 
             LEFT JOIN categories c ON e.category = c.id 
+            WHERE e.user_id = ?
             ORDER BY e.date DESC, e.created_at DESC
         ");
-        $stmt->execute();
+        $stmt->execute([$userId]);
         return $stmt->fetchAll();
     } catch (Exception $e) {
         error_log("Failed to load expenses: " . $e->getMessage());
@@ -169,12 +194,14 @@ function loadCategories() {
 function saveExpense($expense) {
     try {
         $pdo = getDBConnection();
+        $userId = getCurrentUserId();
         $stmt = $pdo->prepare("
-            INSERT INTO expenses (id, amount, category, description, date) 
-            VALUES (?, ?, ?, ?, ?)
+            INSERT INTO expenses (id, user_id, amount, category, description, date) 
+            VALUES (?, ?, ?, ?, ?, ?)
         ");
         return $stmt->execute([
             $expense['id'],
+            $userId,
             $expense['amount'],
             $expense['category'],
             $expense['description'],
@@ -189,8 +216,9 @@ function saveExpense($expense) {
 function deleteExpense($id) {
     try {
         $pdo = getDBConnection();
-        $stmt = $pdo->prepare("DELETE FROM expenses WHERE id = ?");
-        return $stmt->execute([$id]);
+        $userId = getCurrentUserId();
+        $stmt = $pdo->prepare("DELETE FROM expenses WHERE id = ? AND user_id = ?");
+        return $stmt->execute([$id, $userId]);
     } catch (Exception $e) {
         error_log("Failed to delete expense: " . $e->getMessage());
         return false;
@@ -200,30 +228,32 @@ function deleteExpense($id) {
 function getExpenseStats() {
     try {
         $pdo = getDBConnection();
+        $userId = getCurrentUserId();
         
         // Total expenses
-        $stmt = $pdo->prepare("SELECT COALESCE(SUM(amount), 0) as total FROM expenses");
-        $stmt->execute();
+        $stmt = $pdo->prepare("SELECT COALESCE(SUM(amount), 0) as total FROM expenses WHERE user_id = ?");
+        $stmt->execute([$userId]);
         $total = $stmt->fetchColumn();
         
         // This month expenses
         $stmt = $pdo->prepare("
             SELECT COALESCE(SUM(amount), 0) as monthly 
             FROM expenses 
-            WHERE EXTRACT(YEAR FROM date) = EXTRACT(YEAR FROM CURRENT_DATE) 
+            WHERE user_id = ?
+            AND EXTRACT(YEAR FROM date) = EXTRACT(YEAR FROM CURRENT_DATE) 
             AND EXTRACT(MONTH FROM date) = EXTRACT(MONTH FROM CURRENT_DATE)
         ");
-        $stmt->execute();
+        $stmt->execute([$userId]);
         $monthly = $stmt->fetchColumn();
         
         // Average transaction
-        $stmt = $pdo->prepare("SELECT COALESCE(AVG(amount), 0) as average FROM expenses");
-        $stmt->execute();
+        $stmt = $pdo->prepare("SELECT COALESCE(AVG(amount), 0) as average FROM expenses WHERE user_id = ?");
+        $stmt->execute([$userId]);
         $average = $stmt->fetchColumn();
         
         // Total transactions
-        $stmt = $pdo->prepare("SELECT COUNT(*) as count FROM expenses");
-        $stmt->execute();
+        $stmt = $pdo->prepare("SELECT COUNT(*) as count FROM expenses WHERE user_id = ?");
+        $stmt->execute([$userId]);
         $count = $stmt->fetchColumn();
         
         return [
@@ -246,6 +276,7 @@ function getExpenseStats() {
 function getCategoryBreakdown() {
     try {
         $pdo = getDBConnection();
+        $userId = getCurrentUserId();
         $stmt = $pdo->prepare("
             SELECT 
                 c.id,
@@ -254,11 +285,11 @@ function getCategoryBreakdown() {
                 c.icon,
                 COALESCE(SUM(e.amount), 0) as total
             FROM categories c
-            LEFT JOIN expenses e ON c.id = e.category
+            LEFT JOIN expenses e ON c.id = e.category AND e.user_id = ?
             GROUP BY c.id, c.name, c.color, c.icon
             ORDER BY total DESC
         ");
-        $stmt->execute();
+        $stmt->execute([$userId]);
         return $stmt->fetchAll();
     } catch (Exception $e) {
         error_log("Failed to get category breakdown: " . $e->getMessage());
@@ -1058,6 +1089,12 @@ foreach ($categoryBreakdown as $cat) {
         <div class="header">
             <h1>💰 Expense Tracker</h1>
             <p>Track your expenses, manage your budget, analyze your spending</p>
+            <div style="margin-top: 15px; display: flex; align-items: center; justify-content: center; gap: 15px;">
+                <span style="font-size: 1rem;">Welcome, <strong><?php echo htmlspecialchars($_SESSION['username']); ?></strong>!</span>
+                <a href="logout.php" style="background: rgba(255,255,255,0.2); color: white; padding: 8px 20px; border-radius: 20px; text-decoration: none; font-weight: 600; transition: all 0.3s ease;" onmouseover="this.style.background='rgba(255,255,255,0.3)'" onmouseout="this.style.background='rgba(255,255,255,0.2)'">
+                    🚪 Logout
+                </a>
+            </div>
         </div>
         
         <!-- Alert Messages -->

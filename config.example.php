@@ -2,22 +2,25 @@
 /**
  * Database Configuration Template
  * 
- * Copy this file to 'config.php' and fill in your actual database credentials.
- * 
- * Steps to set up:
- * 1. Copy this file: cp config.example.php config.php
- * 2. Edit config.php with your actual database credentials
- * 3. Never commit config.php to version control
- * 
- * @version 2.0.0
+ * Copy this file to config.php and update with your actual database credentials
  */
 
 return [
-    'db_host' => 'your-database-host.com',
+    // PostgreSQL Database Host
+    'db_host' => 'localhost',
+    
+    // PostgreSQL Database Port (default: 5432)
     'db_port' => '5432',
-    'db_name' => 'your-database-name',
-    'db_user' => 'your-database-user',
-    'db_pass' => 'your-database-password',
-    'db_ssl' => 'require'
+    
+    // Database Name
+    'db_name' => 'expense_tracker',
+    
+    // Database Username
+    'db_user' => 'your_username',
+    
+    // Database Password
+    'db_pass' => 'your_password',
+    
+    // SSL Mode (prefer, require, disable)
+    'db_ssl' => 'prefer',
 ];
-

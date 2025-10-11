@@ -22,12 +22,13 @@ A modern, responsive expense tracker built with PHP and PostgreSQL. Track your d
 ### ✨ Key Highlights
 
 - 🗄️ **PostgreSQL Database** - Powered by Neon's serverless PostgreSQL
+- 🔐 **Multi-User Authentication** - Secure login/signup system for multiple users
 - 📊 **Beautiful Analytics** - Interactive Chart.js visualizations
 - 📱 **Fully Responsive** - Works perfectly on all devices
-- 💾 **CSV Export** - Download your expense data anytime
+- 💾 **Multi-Format Export** - CSV, JSON, Excel, XML, and PDF export options
 - 🎨 **Modern UI** - Clean, gradient design with smooth animations
 - ⚡ **Lightning Fast** - Optimized database queries and caching
-- 🔒 **Secure** - SQL injection protection with prepared statements
+- 🔒 **Secure** - Password hashing, SQL injection protection, session management
 - 🆓 **100% Free** - Deploy with free Neon PostgreSQL tier
 
 ---
@@ -38,11 +39,13 @@ A modern, responsive expense tracker built with PHP and PostgreSQL. Track your d
 
 | Feature | Description |
 |---------|-------------|
+| 🔐 **User Authentication** | Secure signup/login system with password hashing |
+| 👥 **Multi-User Support** | Each user has their own private expense data |
 | ✅ **Expense Tracking** | Add, view, and delete expenses with ease |
 | 📂 **Category Management** | 7 pre-defined categories with custom colors & icons |
 | 📊 **Visual Analytics** | Interactive doughnut chart showing spending breakdown |
 | 📈 **Statistics Dashboard** | Total expenses, monthly spending, average transaction |
-| 📥 **CSV Export** | Export all data for Excel/Google Sheets analysis |
+| 📥 **Multi-Format Export** | Export to CSV, JSON, Excel, XML, or PDF |
 | 📅 **Date Tracking** | Track expenses by date with chronological sorting |
 | 💬 **Descriptions** | Add notes to remember what each expense was for |
 | 🎨 **Color-Coded** | Visual category identification with custom colors |
@@ -83,21 +86,26 @@ cd expense-tracker-php
 cp config.example.php config.php
 # Edit config.php with your Neon PostgreSQL credentials
 
-# 4. Migrate existing data (if any)
-php migrate.php
-
-# 5. Start PHP development server
+# 4. Start PHP development server
 php -S localhost:8000
 
-# 6. Open in browser
+# 5. Open in browser and create your account
 # Visit: http://localhost:8000
 ```
 
 The application will automatically:
 - Connect to your PostgreSQL database
-- Create necessary tables (expenses, categories)
+- Create necessary tables (users, expenses, categories)
 - Insert default categories
 - Set up proper database indexes
+
+### First-Time Setup
+
+1. Visit the application in your browser
+2. You'll be redirected to the login page
+3. Click "Sign Up" to create your account
+4. Fill in your username, email, and password
+5. Login and start tracking expenses!
 
 > **🔒 Security Note:** Database credentials are stored in `config.php` which is excluded from version control via `.gitignore`. Never commit this file to Git!
 
@@ -163,14 +171,18 @@ Just upload via FTP and set folder permissions!
 
 This application implements industry-standard security practices:
 
+- **Password Security**: Bcrypt hashing with `password_hash()` and `password_verify()`
+- **Session Management**: Secure session handling with proper cleanup
+- **User Isolation**: Each user can only access their own data
+- **SQL Injection Protection**: All queries use PDO prepared statements
+- **XSS Prevention**: All user inputs sanitized with `htmlspecialchars()`
 - **Secure Configuration**: Database credentials stored separately in `config.php`
 - **Git Ignore Protection**: Sensitive files automatically excluded from version control
-- **SQL Injection Protection**: All queries use PDO prepared statements
 - **SSL/TLS Encryption**: Forced SSL connections to PostgreSQL
 - **File Access Control**: `.htaccess` protects sensitive files
 - **Error Handling**: Production-safe error reporting
 
-📖 **Read full security guide**: [SECURITY.md](SECURITY.md)
+📖 **Read authentication guide**: [AUTH_GUIDE.md](AUTH_GUIDE.md)
 
 ---
 
@@ -178,14 +190,18 @@ This application implements industry-standard security practices:
 
 ```
 expense-tracker/
-├── index.php              # Main application (2000+ lines)
+├── index.php              # Main application
 │   ├── Backend Logic      # PHP expense management
 │   ├── Frontend UI        # HTML/CSS interface
 │   └── JavaScript         # AJAX & Chart.js integration
 │
+├── auth.php               # Authentication helper functions
+├── login.php              # User login page
+├── signup.php             # User registration page
+├── logout.php             # Logout handler
+│
 ├── config.php             # Database credentials (NOT in Git)
 ├── config.example.php     # Configuration template
-├── migrate.php            # JSON to PostgreSQL migration tool
 │
 ├── data/                  # Legacy data directory (for migration)
 │   ├── expenses.json      # Old expense records
@@ -194,7 +210,7 @@ expense-tracker/
 ├── .htaccess              # Apache configuration & security
 ├── .gitignore             # Git ignore rules
 ├── README.md              # This file
-├── SECURITY.md            # Security best practices
+├── AUTH_GUIDE.md          # Authentication system guide
 ├── DEPLOYMENT.md          # Detailed hosting guide
 ├── QUICK_START.md         # Fast setup guide
 └── LICENSE                # MIT License
@@ -203,6 +219,22 @@ expense-tracker/
 ---
 
 ## 💻 Usage Examples
+
+### Creating an Account
+
+1. Visit the application
+2. Click **"Sign Up"** on the login page
+3. Enter your username (3-20 characters)
+4. Enter your email address
+5. Create a password (minimum 6 characters)
+6. Confirm your password
+7. Click **"Create Account"**
+
+### Logging In
+
+1. Enter your username
+2. Enter your password
+3. Click **"Sign In"**
 
 ### Adding an Expense
 
@@ -220,7 +252,15 @@ expense-tracker/
 
 ### Exporting Data
 
-Click the **"📥 Export to CSV"** button to download:
+Choose from multiple export formats:
+
+- **📊 CSV** - For Excel/Google Sheets
+- **📋 JSON** - For data processing/backup
+- **📗 Excel** - Direct Excel file format
+- **📄 XML** - For structured data exchange
+- **📕 PDF** - Printable report with statistics
+
+Example CSV output:
 ```csv
 Date,Category,Description,Amount,Created At
 2025-10-11,Food & Dining,Lunch at restaurant,45.50,2025-10-11 14:30:00
@@ -419,7 +459,9 @@ Contributions are welcome! Here's how:
 - [ ] Data backup/restore
 - [ ] Dark mode toggle
 - [ ] Multi-language support
-- [ ] PDF export
+- [ ] Password reset via email
+- [ ] Two-factor authentication (2FA)
+- [ ] Profile picture upload
 
 ---
 
@@ -467,8 +509,20 @@ in the Software without restriction...
 - [ ] Recurring expenses
 - [ ] Search and filter functionality
 
-### Version 1.2 (Future)
-- [ ] Multi-user support with login
+### Version 2.0 ✅ (Current - Released!)
+- [x] Multi-user support with login/signup
+- [x] Secure password hashing
+- [x] Session management
+- [x] User-specific data isolation
+- [x] Multiple export formats (CSV, JSON, Excel, XML, PDF)
+
+### Version 2.1 (Planned)
+- [ ] Password reset functionality
+- [ ] Email verification
+- [ ] Profile settings page
+- [ ] Change password feature
+
+### Version 2.2 (Future)
 - [ ] Income tracking
 - [ ] Monthly budget reports
 - [ ] Email notifications
