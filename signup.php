@@ -9,7 +9,7 @@
 
 require_once __DIR__ . '/bootstrap.php';
 
-use ExpenseTracker\Controllers\AuthController;
+use ExpenseTracker\Services\Auth;
 use ExpenseTracker\Middleware\AuthMiddleware;
 use ExpenseTracker\Services\Currency;
 
@@ -17,7 +17,6 @@ use ExpenseTracker\Services\Currency;
 $authMiddleware = new AuthMiddleware();
 $authMiddleware->handleGuest();
 
-$authController = new AuthController();
 $error = '';
 $success = '';
 $currencies = Currency::getAll();
@@ -25,13 +24,26 @@ $defaultCurrency = Currency::detectUserCurrency();
 
 // Handle registration form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $result = $authController->register();
+    $name = Auth::sanitize($_POST['username'] ?? '');
+    $email = Auth::sanitize($_POST['email'] ?? '');
+    $password = $_POST['password'] ?? '';
+    $confirmPassword = $_POST['confirm_password'] ?? '';
+    $currency = strtoupper($_POST['currency'] ?? 'USD');
     
-    if ($result['success']) {
-        $success = 'Registration successful! Redirecting to login...';
-        header('Refresh: 2; URL=/login.php');
+    // Validate inputs
+    if (empty($name) || empty($email) || empty($password) || empty($confirmPassword)) {
+        $error = 'All fields are required';
+    } elseif ($password !== $confirmPassword) {
+        $error = 'Passwords do not match';
     } else {
-        $error = $result['error'];
+        $result = Auth::register($name, $email, $password, $currency);
+        
+        if ($result['success']) {
+            $success = 'Registration successful! Redirecting to login...';
+            header('Refresh: 2; URL=/login.php');
+        } else {
+            $error = $result['error'];
+        }
     }
 }
 

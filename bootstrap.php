@@ -88,6 +88,11 @@ $config = require_once $config_file;
 // Store config in a global accessible way
 $GLOBALS['app_config'] = $config;
 
+// Load Gemini API key from config for AI features
+if (isset($config['gemini_api_key']) && !empty($config['gemini_api_key'])) {
+    putenv('GEMINI_API_KEY=' . $config['gemini_api_key']);
+}
+
 // Initialize database (create tables if needed)
 use ExpenseTracker\Services\Database;
 

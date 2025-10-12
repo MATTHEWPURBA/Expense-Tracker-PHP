@@ -69,3 +69,5 @@ build/
 # Cache
 cache/
 *.cache
+
+ai implementation idea/

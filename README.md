@@ -23,13 +23,40 @@ A modern, responsive expense tracker built with PHP and PostgreSQL. Track your d
 
 - 🗄️ **PostgreSQL Database** - Powered by Neon's serverless PostgreSQL
 - 🔐 **Multi-User Authentication** - Secure login/signup system for multiple users
+- 🤖 **AI-Powered Features** - Smart categorization, natural language entry, insights & predictions (NEW!)
 - 📊 **Beautiful Analytics** - Interactive Chart.js visualizations
 - 📱 **Fully Responsive** - Works perfectly on all devices
 - 💾 **Multi-Format Export** - CSV, JSON, Excel, XML, and PDF export options
 - 🎨 **Modern UI** - Clean, gradient design with smooth animations
 - ⚡ **Lightning Fast** - Optimized database queries and caching
 - 🔒 **Secure** - Password hashing, SQL injection protection, session management
-- 🆓 **100% Free** - Deploy with free Neon PostgreSQL tier
+- 🆓 **100% Free** - Deploy with free Neon PostgreSQL tier + Google Gemini API
+
+---
+
+## 🤖 NEW: AI-Powered Features (100% FREE)
+
+Transform your expense tracking with AI! Get your FREE Google Gemini API key and unlock:
+
+### ✨ Smart Features
+
+| Feature | Description |
+|---------|-------------|
+| 💬 **Natural Language Entry** | Type "I spent $50 on pizza" → Auto-fills everything! |
+| ✨ **Smart Categorization** | AI automatically categorizes your expenses |
+| 💡 **Spending Insights** | Get personalized analysis of your spending habits |
+| 🎯 **Budget Predictions** | AI predicts next month's expenses |
+| 💰 **Savings Recommendations** | Personalized money-saving tips |
+
+### 🚀 Quick Setup (3 Steps)
+
+1. Get FREE API key: [Google AI Studio](https://makersuite.google.com/app/apikey)
+2. Add to `config.php`: `'gemini_api_key' => 'AIza...'`
+3. Done! AI features appear automatically ✨
+
+**📚 Full Guide:** See [AI_IMPLEMENTATION_GUIDE.md](AI_IMPLEMENTATION_GUIDE.md) or [AI_README.md](AI_README.md)
+
+**💰 Cost:** $0.00 - Completely FREE (1,500 requests/day, no credit card required)
 
 ---
 

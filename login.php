@@ -9,14 +9,13 @@
 
 require_once __DIR__ . '/bootstrap.php';
 
-use ExpenseTracker\Controllers\AuthController;
+use ExpenseTracker\Services\Auth;
 use ExpenseTracker\Middleware\AuthMiddleware;
 
 // Redirect if already logged in
 $authMiddleware = new AuthMiddleware();
 $authMiddleware->handleGuest();
 
-$authController = new AuthController();
 $error = '';
 $success = '';
 
@@ -27,13 +26,20 @@ if (isset($_GET['logout'])) {
 
 // Handle login form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $result = $authController->login();
+    $usernameOrEmail = Auth::sanitize($_POST['username'] ?? '');
+    $password = $_POST['password'] ?? '';
     
-    if ($result['success']) {
-        header('Location: /index.php');
-        exit;
+    if (empty($usernameOrEmail) || empty($password)) {
+        $error = 'Please enter both username/email and password';
     } else {
-        $error = $result['error'];
+        $result = Auth::login($usernameOrEmail, $password);
+        
+        if ($result['success']) {
+            header('Location: /index.php');
+            exit;
+        } else {
+            $error = $result['error'];
+        }
     }
 }
 

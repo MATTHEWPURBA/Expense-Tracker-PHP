@@ -96,8 +96,15 @@ class Expense extends Model
     public function deleteByUser(string $expenseId, int $userId): bool
     {
         try {
-            $stmt = $this->db->prepare("DELETE FROM {$this->table} WHERE id = ? AND user_id = ?");
-            return $stmt->execute([$expenseId, $userId]);
+            $sql = "DELETE FROM {$this->table} WHERE id = ? AND user_id = ?";
+            $startTime = microtime(true);
+            
+            $stmt = $this->db->prepare($sql);
+            $result = $stmt->execute([$expenseId, $userId]);
+            
+            $this->trackQuery($sql, [$expenseId, $userId], microtime(true) - $startTime);
+            
+            return $result;
         } catch (\Exception $e) {
             error_log("Delete expense failed: " . $e->getMessage());
             return false;

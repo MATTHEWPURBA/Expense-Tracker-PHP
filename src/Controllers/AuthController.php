@@ -10,63 +10,94 @@
 namespace ExpenseTracker\Controllers;
 
 use ExpenseTracker\Services\Auth;
+use ExpenseTracker\Router\ApiResponse;
+use ExpenseTracker\Models\Model;
 
 class AuthController
 {
     /**
-     * Handle user login
+     * Handle user login (API)
      */
-    public function login(): array
+    public function login(): ApiResponse
     {
-        $usernameOrEmail = Auth::sanitize($_POST['username'] ?? '');
-        $password = $_POST['password'] ?? '';
+        $input = json_decode(file_get_contents('php://input'), true) ?: $_POST;
+        
+        $usernameOrEmail = Auth::sanitize($input['username'] ?? '');
+        $password = $input['password'] ?? '';
         
         if (empty($usernameOrEmail) || empty($password)) {
-            return [
-                'success' => false,
-                'error' => 'Please enter both username/email and password'
-            ];
+            return ApiResponse::error('Please enter both username/email and password', 400);
         }
         
-        return Auth::login($usernameOrEmail, $password);
+        $result = Auth::login($usernameOrEmail, $password);
+        
+        if ($result['success']) {
+            return ApiResponse::success([
+                'user' => $result['user'] ?? Auth::user()
+            ], 'Login successful')->setQueries(Model::getQueries());
+        }
+        
+        return ApiResponse::error($result['error'] ?? 'Login failed', 401);
     }
     
     /**
-     * Handle user registration
+     * Handle user registration (API)
      */
-    public function register(): array
+    public function register(): ApiResponse
     {
-        $name = Auth::sanitize($_POST['username'] ?? '');
-        $email = Auth::sanitize($_POST['email'] ?? '');
-        $password = $_POST['password'] ?? '';
-        $confirmPassword = $_POST['confirm_password'] ?? '';
-        $currency = strtoupper($_POST['currency'] ?? 'USD');
+        $input = json_decode(file_get_contents('php://input'), true) ?: $_POST;
+        
+        $name = Auth::sanitize($input['username'] ?? '');
+        $email = Auth::sanitize($input['email'] ?? '');
+        $password = $input['password'] ?? '';
+        $confirmPassword = $input['confirm_password'] ?? '';
+        $currency = strtoupper($input['currency'] ?? 'USD');
         
         // Validate inputs
-        if (empty($name) || empty($email) || empty($password) || empty($confirmPassword)) {
-            return [
-                'success' => false,
-                'error' => 'All fields are required'
-            ];
+        $errors = [];
+        
+        if (empty($name)) {
+            $errors['username'] = 'Username is required';
+        }
+        
+        if (empty($email)) {
+            $errors['email'] = 'Email is required';
+        } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            $errors['email'] = 'Invalid email format';
+        }
+        
+        if (empty($password)) {
+            $errors['password'] = 'Password is required';
+        } elseif (strlen($password) < 6) {
+            $errors['password'] = 'Password must be at least 6 characters';
         }
         
         if ($password !== $confirmPassword) {
-            return [
-                'success' => false,
-                'error' => 'Passwords do not match'
-            ];
+            $errors['confirm_password'] = 'Passwords do not match';
         }
         
-        return Auth::register($name, $email, $password, $currency);
+        if (!empty($errors)) {
+            return ApiResponse::error('Validation failed', 422, $errors);
+        }
+        
+        $result = Auth::register($name, $email, $password, $currency);
+        
+        if ($result['success']) {
+            return ApiResponse::created([
+                'user' => $result['user'] ?? Auth::user()
+            ], 'Registration successful')->setQueries(Model::getQueries());
+        }
+        
+        return ApiResponse::error($result['error'] ?? 'Registration failed', 400);
     }
     
     /**
-     * Handle user logout
+     * Handle user logout (API)
      */
-    public function logout(): void
+    public function logout(): ApiResponse
     {
         Auth::logout();
-        redirect('/login.php?logout=1');
+        return ApiResponse::success([], 'Logged out successfully');
     }
 }
 

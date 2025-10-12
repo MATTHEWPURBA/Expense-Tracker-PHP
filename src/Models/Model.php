@@ -18,10 +18,42 @@ abstract class Model
     protected $table;
     protected $primaryKey = 'id';
     protected $db;
+    protected static $queries = [];
     
     public function __construct()
     {
         $this->db = Database::getInstance()->getConnection();
+    }
+    
+    /**
+     * Track SQL query for debugging
+     */
+    protected function trackQuery(string $sql, array $params = [], float $executionTime = 0): void
+    {
+        self::$queries[] = [
+            'model' => get_class($this),
+            'table' => $this->table,
+            'query' => $sql,
+            'params' => $params,
+            'execution_time' => round($executionTime * 1000, 2) . 'ms',
+            'timestamp' => date('Y-m-d H:i:s')
+        ];
+    }
+    
+    /**
+     * Get all tracked queries
+     */
+    public static function getQueries(): array
+    {
+        return self::$queries;
+    }
+    
+    /**
+     * Clear tracked queries
+     */
+    public static function clearQueries(): void
+    {
+        self::$queries = [];
     }
     
     /**
@@ -30,9 +62,14 @@ abstract class Model
     public function find($id): ?array
     {
         try {
-            $stmt = $this->db->prepare("SELECT * FROM {$this->table} WHERE {$this->primaryKey} = ?");
+            $sql = "SELECT * FROM {$this->table} WHERE {$this->primaryKey} = ?";
+            $startTime = microtime(true);
+            
+            $stmt = $this->db->prepare($sql);
             $stmt->execute([$id]);
             $result = $stmt->fetch();
+            
+            $this->trackQuery($sql, [$id], microtime(true) - $startTime);
             
             return $result ?: null;
         } catch (Exception $e) {
@@ -47,8 +84,15 @@ abstract class Model
     public function all(): array
     {
         try {
-            $stmt = $this->db->query("SELECT * FROM {$this->table}");
-            return $stmt->fetchAll();
+            $sql = "SELECT * FROM {$this->table}";
+            $startTime = microtime(true);
+            
+            $stmt = $this->db->query($sql);
+            $result = $stmt->fetchAll();
+            
+            $this->trackQuery($sql, [], microtime(true) - $startTime);
+            
+            return $result;
         } catch (Exception $e) {
             error_log("Find all failed: " . $e->getMessage());
             return [];
@@ -61,9 +105,16 @@ abstract class Model
     public function where(string $column, $value): array
     {
         try {
-            $stmt = $this->db->prepare("SELECT * FROM {$this->table} WHERE {$column} = ?");
+            $sql = "SELECT * FROM {$this->table} WHERE {$column} = ?";
+            $startTime = microtime(true);
+            
+            $stmt = $this->db->prepare($sql);
             $stmt->execute([$value]);
-            return $stmt->fetchAll();
+            $result = $stmt->fetchAll();
+            
+            $this->trackQuery($sql, [$value], microtime(true) - $startTime);
+            
+            return $result;
         } catch (Exception $e) {
             error_log("Where query failed: " . $e->getMessage());
             return [];
@@ -80,10 +131,26 @@ abstract class Model
             $placeholders = implode(', ', array_fill(0, count($data), '?'));
             
             $sql = "INSERT INTO {$this->table} ({$columns}) VALUES ({$placeholders})";
-            $stmt = $this->db->prepare($sql);
-            $stmt->execute(array_values($data));
+            $startTime = microtime(true);
             
-            return $this->db->lastInsertId();
+            $stmt = $this->db->prepare($sql);
+            $result = $stmt->execute(array_values($data));
+            
+            $this->trackQuery($sql, array_values($data), microtime(true) - $startTime);
+            
+            // If an ID was provided in the data, return it
+            // Otherwise, try to get the last insert ID (for auto-increment columns)
+            if (isset($data[$this->primaryKey])) {
+                return $data[$this->primaryKey];
+            }
+            
+            // For auto-increment columns, get the last inserted ID
+            try {
+                return $this->db->lastInsertId();
+            } catch (Exception $e) {
+                // If lastInsertId fails (e.g., no sequence used), just return success
+                return $result;
+            }
         } catch (Exception $e) {
             error_log("Create failed: " . $e->getMessage());
             return false;
@@ -103,12 +170,16 @@ abstract class Model
             $setClause = implode(', ', $sets);
             
             $sql = "UPDATE {$this->table} SET {$setClause} WHERE {$this->primaryKey} = ?";
-            $stmt = $this->db->prepare($sql);
-            
             $values = array_values($data);
             $values[] = $id;
             
-            return $stmt->execute($values);
+            $startTime = microtime(true);
+            $stmt = $this->db->prepare($sql);
+            $result = $stmt->execute($values);
+            
+            $this->trackQuery($sql, $values, microtime(true) - $startTime);
+            
+            return $result;
         } catch (Exception $e) {
             error_log("Update failed: " . $e->getMessage());
             return false;
@@ -121,8 +192,15 @@ abstract class Model
     public function delete($id): bool
     {
         try {
-            $stmt = $this->db->prepare("DELETE FROM {$this->table} WHERE {$this->primaryKey} = ?");
-            return $stmt->execute([$id]);
+            $sql = "DELETE FROM {$this->table} WHERE {$this->primaryKey} = ?";
+            $startTime = microtime(true);
+            
+            $stmt = $this->db->prepare($sql);
+            $result = $stmt->execute([$id]);
+            
+            $this->trackQuery($sql, [$id], microtime(true) - $startTime);
+            
+            return $result;
         } catch (Exception $e) {
             error_log("Delete failed: " . $e->getMessage());
             return false;
@@ -135,9 +213,15 @@ abstract class Model
     protected function query(string $sql, array $params = []): array
     {
         try {
+            $startTime = microtime(true);
+            
             $stmt = $this->db->prepare($sql);
             $stmt->execute($params);
-            return $stmt->fetchAll();
+            $result = $stmt->fetchAll();
+            
+            $this->trackQuery($sql, $params, microtime(true) - $startTime);
+            
+            return $result;
         } catch (Exception $e) {
             error_log("Query failed: " . $e->getMessage());
             return [];
@@ -150,9 +234,14 @@ abstract class Model
     protected function queryOne(string $sql, array $params = [])
     {
         try {
+            $startTime = microtime(true);
+            
             $stmt = $this->db->prepare($sql);
             $stmt->execute($params);
             $result = $stmt->fetch();
+            
+            $this->trackQuery($sql, $params, microtime(true) - $startTime);
+            
             return $result ?: null;
         } catch (Exception $e) {
             error_log("Query one failed: " . $e->getMessage());
