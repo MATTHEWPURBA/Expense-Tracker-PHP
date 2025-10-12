@@ -32,13 +32,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (empty($usernameOrEmail) || empty($password)) {
         $error = 'Please enter both username/email and password';
     } else {
-        $result = Auth::login($usernameOrEmail, $password);
-        
-        if ($result['success']) {
-            header('Location: /index.php');
-            exit;
-        } else {
-            $error = $result['error'];
+        try {
+            $result = Auth::login($usernameOrEmail, $password);
+            
+            if ($result['success']) {
+                header('Location: /index.php');
+                exit;
+            } else {
+                $error = $result['error'];
+            }
+        } catch (Exception $e) {
+            error_log("Login error: " . $e->getMessage());
+            $error = 'Login failed. Please try again.';
         }
     }
 }

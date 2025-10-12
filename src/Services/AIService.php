@@ -117,6 +117,90 @@ class AIService
     }
     
     /**
+     * Send request to Gemini API with image (Vision API)
+     * 
+     * @param string $prompt Text prompt
+     * @param string $imageBase64 Base64 encoded image
+     * @param string $mimeType Image MIME type (e.g., 'image/jpeg', 'image/png')
+     * @return string|null AI response
+     */
+    private function makeVisionRequest(string $prompt, string $imageBase64, string $mimeType): ?string
+    {
+        $url = $this->apiUrl;
+        
+        $data = [
+            'contents' => [
+                [
+                    'parts' => [
+                        ['text' => $prompt],
+                        [
+                            'inline_data' => [
+                                'mime_type' => $mimeType,
+                                'data' => $imageBase64
+                            ]
+                        ]
+                    ]
+                ]
+            ],
+            'generationConfig' => [
+                'temperature' => 0.4,
+                'topK' => 32,
+                'topP' => 0.95,
+                'maxOutputTokens' => 2048,
+            ]
+        ];
+        
+        error_log("[AI Vision] Making vision request to Gemini API...");
+        error_log("[AI Vision] Model: gemini-2.5-flash");
+        error_log("[AI Vision] Image size: " . strlen($imageBase64) . " bytes (base64)");
+        error_log("[AI Vision] MIME type: $mimeType");
+        
+        $ch = curl_init($url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
+        curl_setopt($ch, CURLOPT_HTTPHEADER, [
+            'Content-Type: application/json',
+            'x-goog-api-key: ' . $this->apiKey
+        ]);
+        
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curlError = curl_error($ch);
+        curl_close($ch);
+        
+        error_log("[AI Vision] Response HTTP code: $httpCode");
+        
+        if ($curlError) {
+            error_log("[AI Vision] ❌ CURL Error: $curlError");
+            return null;
+        }
+        
+        if ($httpCode !== 200) {
+            error_log("[AI Vision] ❌ API Error Response: " . substr($response, 0, 500));
+            return null;
+        }
+        
+        $result = json_decode($response, true);
+        
+        if (!$result) {
+            error_log("[AI Vision] ❌ Failed to decode JSON response");
+            return null;
+        }
+        
+        $text = $result['candidates'][0]['content']['parts'][0]['text'] ?? null;
+        
+        if (!$text) {
+            error_log("[AI Vision] ❌ No text found in response structure");
+            return null;
+        }
+        
+        error_log("[AI Vision] ✅ Success! Response: " . substr($text, 0, 200) . (strlen($text) > 200 ? '...' : ''));
+        
+        return $text;
+    }
+    
+    /**
      * 🤖 Smart Expense Categorization
      * 
      * Automatically categorize an expense based on description
@@ -488,6 +572,133 @@ Respond with ONLY the JSON array.";
         $recommendations = json_decode($response, true);
         
         return is_array($recommendations) ? $recommendations : ["Focus on tracking your expenses regularly!"];
+    }
+    
+    /**
+     * 🧾 Extract Expense from Receipt Image (OCR)
+     * 
+     * Upload a receipt photo and AI extracts all expense details
+     * 
+     * Supports: JPEG, PNG, WebP, HEIC/HEIF
+     * 
+     * @param string $imageData Base64 encoded image data
+     * @param string $mimeType Image MIME type (e.g., 'image/jpeg')
+     * @param string $userCurrency User's currency code
+     * @return array|null Extracted expense details
+     */
+    public function extractExpenseFromReceiptImage(string $imageData, string $mimeType, string $userCurrency = 'USD'): ?array
+    {
+        // Get currency info
+        $currencyInfo = Currency::get($userCurrency);
+        $currencyName = $currencyInfo['name'] ?? $userCurrency;
+        $currencySymbol = $currencyInfo['symbol'] ?? '$';
+        
+        $prompt = "You are a receipt OCR and expense extraction AI. Analyze this receipt image and extract ALL expense information.
+
+User's Currency: {$userCurrency} ({$currencyName}, symbol: {$currencySymbol})
+
+EXTRACTION RULES:
+1. Find the TOTAL amount (not individual items unless there's only one item)
+2. Extract merchant/store name
+3. Extract date (convert to YYYY-MM-DD format)
+4. List all items purchased (up to 10 items)
+5. Determine the most appropriate category
+6. Handle ANY language on the receipt (English, Indonesian, Chinese, etc.)
+7. Convert amounts properly:
+   - \"50 ribu\" or \"50,000\" = 50000
+   - \"1 juta\" or \"1,000,000\" = 1000000
+8. If multiple currencies shown, use the one matching user's currency or the dominant one
+
+Return ONLY a JSON object with this EXACT format:
+{
+  \"amount\": <number>,
+  \"merchant\": \"<store_name>\",
+  \"date\": \"YYYY-MM-DD\",
+  \"category\": \"<category_id>\",
+  \"items\": [\"item1\", \"item2\", \"item3\"],
+  \"confidence\": \"high|medium|low\"
+}
+
+Categories (use ID only):
+- food: Food, restaurants, groceries, cafes, dining
+- transport: Transportation, gas stations, parking, uber, taxi
+- utilities: Utilities, electricity, water, internet, phone bills
+- entertainment: Entertainment, movies, games, subscriptions, events
+- healthcare: Healthcare, pharmacy, doctor, medicine, gym
+- shopping: Shopping, retail, clothes, electronics, general merchandise
+- other: Other (if unsure)
+
+If you cannot extract information, return: {\"error\": \"Could not read receipt\"}
+
+Respond with ONLY the JSON, no other text.";
+
+        error_log("[AI OCR] Processing receipt image...");
+        error_log("[AI OCR] MIME type: $mimeType");
+        error_log("[AI OCR] User currency: $userCurrency");
+        
+        $response = $this->makeVisionRequest($prompt, $imageData, $mimeType);
+        
+        if (!$response) {
+            error_log("[AI OCR] ❌ Vision API returned no response");
+            return null;
+        }
+        
+        error_log("[AI OCR] Raw response: " . substr($response, 0, 300));
+        
+        // Extract JSON from response
+        $response = trim($response);
+        if (strpos($response, '```json') !== false) {
+            preg_match('/```json\s*(.*?)\s*```/s', $response, $matches);
+            $response = $matches[1] ?? $response;
+        } elseif (strpos($response, '```') !== false) {
+            preg_match('/```\s*(.*?)\s*```/s', $response, $matches);
+            $response = $matches[1] ?? $response;
+        }
+        
+        $data = json_decode($response, true);
+        
+        if (!$data) {
+            error_log("[AI OCR] ❌ Failed to decode JSON");
+            error_log("[AI OCR] JSON error: " . json_last_error_msg());
+            return null;
+        }
+        
+        if (isset($data['error'])) {
+            error_log("[AI OCR] ❌ AI returned error: " . $data['error']);
+            return null;
+        }
+        
+        if (!isset($data['amount'])) {
+            error_log("[AI OCR] ❌ No amount field in response");
+            return null;
+        }
+        
+        // Validate and clean data
+        $result = [
+            'amount' => floatval($data['amount']),
+            'merchant' => $data['merchant'] ?? 'Unknown merchant',
+            'date' => $data['date'] ?? date('Y-m-d'),
+            'category' => $data['category'] ?? 'other',
+            'items' => $data['items'] ?? [],
+            'confidence' => $data['confidence'] ?? 'medium'
+        ];
+        
+        // Generate description from merchant and items
+        $description = $result['merchant'];
+        if (!empty($result['items'])) {
+            $itemList = implode(', ', array_slice($result['items'], 0, 3));
+            $description .= ' (' . $itemList;
+            if (count($result['items']) > 3) {
+                $description .= ', +' . (count($result['items']) - 3) . ' more';
+            }
+            $description .= ')';
+        }
+        $result['description'] = $description;
+        
+        error_log("[AI OCR] ✅ Successfully extracted receipt!");
+        error_log("[AI OCR] Amount: {$result['amount']}, Merchant: {$result['merchant']}, Items: " . count($result['items']));
+        
+        return $result;
     }
 }
 

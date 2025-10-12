@@ -10,6 +10,7 @@
 namespace ExpenseTracker\Services;
 
 use ExpenseTracker\Models\User;
+use ExpenseTracker\Services\LoginLogger;
 
 class Auth
 {
@@ -47,36 +48,54 @@ class Auth
      */
     public static function login(string $usernameOrEmail, string $password): array
     {
-        $userModel = new User();
-        $user = $userModel->findByUsernameOrEmail($usernameOrEmail);
+        $ip = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
+        $userAgent = $_SERVER['HTTP_USER_AGENT'] ?? 'unknown';
         
-        if (!$user) {
+        try {
+            $userModel = new User();
+            $user = $userModel->findByUsernameOrEmail($usernameOrEmail);
+            
+            if (!$user) {
+                LoginLogger::logAttempt($usernameOrEmail, $ip, $userAgent, false, 'User not found');
+                return [
+                    'success' => false,
+                    'error' => 'Invalid username/email or password'
+                ];
+            }
+            
+            if (!password_verify($password, $user['password'])) {
+                LoginLogger::logAttempt($usernameOrEmail, $ip, $userAgent, false, 'Invalid password');
+                return [
+                    'success' => false,
+                    'error' => 'Invalid username/email or password'
+                ];
+            }
+            
+            // Set session
+            $_SESSION['user_id'] = $user['id'];
+            $_SESSION['username'] = $user['name'];
+            $_SESSION['email'] = $user['email'];
+            $_SESSION['user'] = $user;
+            
+            // Update last login
+            $userModel->updateLastLogin($user['id']);
+            
+            // Log successful login
+            LoginLogger::logAttempt($usernameOrEmail, $ip, $userAgent, true);
+            
+            return [
+                'success' => true,
+                'user' => $user
+            ];
+            
+        } catch (Exception $e) {
+            error_log("Login exception: " . $e->getMessage());
+            LoginLogger::logAttempt($usernameOrEmail, $ip, $userAgent, false, 'Database error: ' . $e->getMessage());
             return [
                 'success' => false,
-                'error' => 'Invalid username/email or password'
+                'error' => 'Login failed. Please try again.'
             ];
         }
-        
-        if (!password_verify($password, $user['password'])) {
-            return [
-                'success' => false,
-                'error' => 'Invalid username/email or password'
-            ];
-        }
-        
-        // Set session
-        $_SESSION['user_id'] = $user['id'];
-        $_SESSION['username'] = $user['name'];
-        $_SESSION['email'] = $user['email'];
-        $_SESSION['user'] = $user;
-        
-        // Update last login
-        $userModel->updateLastLogin($user['id']);
-        
-        return [
-            'success' => true,
-            'user' => $user
-        ];
     }
     
     /**

@@ -262,5 +262,110 @@ class AIController
             ]);
         }
     }
+    
+    /**
+     * Extract expense from receipt image (OCR)
+     * 
+     * POST /api/ai/receipt
+     * Body: {"image": "base64_encoded_image", "mimeType": "image/jpeg"}
+     * Response: {"amount": 50.99, "merchant": "Store", "date": "2025-10-12", "category": "food", "items": [...], "success": true}
+     */
+    public function scanReceipt(): void
+    {
+        header('Content-Type: application/json');
+        
+        try {
+            error_log("=== AI Receipt OCR Request Received ===");
+            
+            $userId = $_SESSION['user_id'] ?? null;
+            
+            if (!$userId) {
+                error_log("[AI Receipt] ❌ User not authenticated");
+                echo json_encode(['error' => 'Not authenticated', 'success' => false]);
+                return;
+            }
+            
+            $rawInput = file_get_contents('php://input');
+            error_log("[AI Receipt] Request body size: " . strlen($rawInput) . " bytes");
+            
+            $input = json_decode($rawInput, true);
+            
+            if (!isset($input['image'])) {
+                error_log("[AI Receipt] ❌ Missing 'image' field in request");
+                echo json_encode(['error' => 'Image data required', 'success' => false]);
+                return;
+            }
+            
+            // Get MIME type (default to jpeg)
+            $mimeType = $input['mimeType'] ?? 'image/jpeg';
+            
+            // Validate MIME type
+            $allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/heic', 'image/heif'];
+            if (!in_array(strtolower($mimeType), $allowedTypes)) {
+                error_log("[AI Receipt] ❌ Invalid MIME type: $mimeType");
+                echo json_encode(['error' => 'Unsupported image format. Use JPEG, PNG, or WebP.', 'success' => false]);
+                return;
+            }
+            
+            // Remove data URL prefix if present
+            $imageData = $input['image'];
+            if (strpos($imageData, 'data:') === 0) {
+                error_log("[AI Receipt] Removing data URL prefix...");
+                $imageData = preg_replace('/^data:image\/\w+;base64,/', '', $imageData);
+            }
+            
+            // Validate base64
+            $decodedSize = strlen(base64_decode($imageData, true));
+            error_log("[AI Receipt] Image size (decoded): " . number_format($decodedSize) . " bytes");
+            
+            if ($decodedSize === 0) {
+                error_log("[AI Receipt] ❌ Invalid base64 data");
+                echo json_encode(['error' => 'Invalid image data', 'success' => false]);
+                return;
+            }
+            
+            // Check size limit (10MB)
+            if ($decodedSize > 10 * 1024 * 1024) {
+                error_log("[AI Receipt] ❌ Image too large: " . number_format($decodedSize) . " bytes");
+                echo json_encode(['error' => 'Image too large. Maximum size is 10MB.', 'success' => false]);
+                return;
+            }
+            
+            // Get user's currency
+            $user = Auth::user();
+            $userCurrency = $user['currency'] ?? 'USD';
+            
+            error_log("[AI Receipt] User ID: " . $userId);
+            error_log("[AI Receipt] User currency: $userCurrency");
+            error_log("[AI Receipt] MIME type: $mimeType");
+            error_log("[AI Receipt] Processing receipt...");
+            
+            // Extract expense from receipt
+            $result = $this->aiService->extractExpenseFromReceiptImage($imageData, $mimeType, $userCurrency);
+            
+            if (!$result) {
+                error_log("[AI Receipt] ❌ AI service returned null");
+                echo json_encode([
+                    'error' => 'Could not extract information from receipt. Please ensure the image is clear and try again.',
+                    'success' => false
+                ]);
+                return;
+            }
+            
+            error_log("[AI Receipt] ✅ Successfully extracted receipt data!");
+            error_log("[AI Receipt] Amount: {$result['amount']}, Merchant: {$result['merchant']}");
+            
+            echo json_encode(array_merge($result, ['success' => true]));
+            
+        } catch (\Exception $e) {
+            error_log("[AI Receipt] ❌ Exception: " . $e->getMessage());
+            error_log("[AI Receipt] Stack trace: " . $e->getTraceAsString());
+            
+            echo json_encode([
+                'error' => 'Error processing receipt: ' . $e->getMessage(),
+                'success' => false
+            ]);
+        }
+    }
 }
 

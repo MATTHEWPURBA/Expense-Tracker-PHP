@@ -420,19 +420,56 @@ foreach ($categoryBreakdown as $cat) {
                 </button>
             </div>
             
-            <!-- Feature 3: AI Spending Insights -->
+            <!-- Feature 3: Receipt OCR -->
+            <div class="ai-feature">
+                <h3>🧾 Receipt Scanner (OCR)</h3>
+                <p style="opacity: 0.9; margin-bottom: 15px;">
+                    📸 Take a photo of your receipt and AI extracts all the details!
+                </p>
+                <div style="background: rgba(255,255,255,0.1); padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                    <strong>Supports:</strong>
+                    <ul style="margin: 10px 0; padding-left: 20px;">
+                        <li>📱 Restaurant receipts, grocery bills, gas stations</li>
+                        <li>🌍 Any language (English, Indonesian, Chinese, etc.)</li>
+                        <li>🖼️ JPEG, PNG, WebP images (max 10MB)</li>
+                    </ul>
+                </div>
+                <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                    <input 
+                        type="file" 
+                        id="receipt-file-input" 
+                        accept="image/jpeg,image/jpg,image/png,image/webp"
+                        style="display: none;"
+                        onchange="handleReceiptFileSelect()"
+                    />
+                    <button onclick="triggerReceiptUpload()" class="ai-btn" style="flex: 1; min-width: 150px;">
+                        📷 Choose Receipt Photo
+                    </button>
+                    <button id="scan-receipt-btn" onclick="scanReceipt()" class="ai-btn" style="flex: 1; min-width: 150px;">
+                        🧾 Scan Receipt
+                    </button>
+                </div>
+                <div id="receipt-file-label" style="margin-top: 10px; font-size: 13px; opacity: 0.8;">
+                    No file selected
+                </div>
+                <div style="margin-top: 10px; font-size: 12px; opacity: 0.7;">
+                    💡 Take a clear photo of your receipt for best results
+                </div>
+            </div>
+            
+            <!-- Feature 4: AI Spending Insights -->
             <div class="ai-feature" id="ai-insights">
                 <h3>💡 AI Spending Insights</h3>
                 <div class="ai-loading">🤖 Loading your personalized insights...</div>
             </div>
             
-            <!-- Feature 4: Budget Prediction -->
+            <!-- Feature 5: Budget Prediction -->
             <div class="ai-feature" id="budget-prediction">
                 <h3>🎯 AI Budget Prediction</h3>
                 <div class="ai-loading">🤖 Calculating your predicted budget...</div>
             </div>
             
-            <!-- Feature 5: Smart Recommendations -->
+            <!-- Feature 6: Smart Recommendations -->
             <div class="ai-feature" id="ai-recommendations">
                 <h3>💰 Smart Savings Recommendations</h3>
                 <div class="ai-loading">🤖 Generating personalized money-saving tips...</div>

@@ -16,13 +16,16 @@ Type naturally: "I spent $50 on pizza" → Auto-fills everything!
 ### 2. ✨ Smart Categorization  
 Describe anything → AI picks the right category
 
-### 3. 💡 Spending Insights
+### 3. 🧾 Receipt OCR Scanner ✨ NEW!
+Take a photo of any receipt → AI extracts all details automatically!
+
+### 4. 💡 Spending Insights
 Personalized analysis of your spending habits
 
-### 4. 🎯 Budget Predictions
+### 5. 🎯 Budget Predictions
 AI predicts next month's expenses
 
-### 5. 💰 Savings Recommendations
+### 6. 💰 Savings Recommendations
 Specific tips to save money based on YOUR data
 
 ---
@@ -35,11 +38,17 @@ Specific tips to save money based on YOUR data
 - `api_ai.php` - API router
 - `ai-dashboard.js` - Frontend JavaScript
 - `AI_IMPLEMENTATION_GUIDE.md` - Full documentation
+- `AI_RECEIPT_OCR_GUIDE.md` - Receipt OCR guide ✨ NEW
+- `RECEIPT_OCR_IMPLEMENTATION.md` - Implementation summary ✨ NEW
 
 ### ✏️ Modified Files:
 - `config.php` - Added API key field
 - `bootstrap.php` - Loads API key
-- `views/dashboard/index.php` - Added AI UI section
+- `views/dashboard/index.php` - Added AI UI section + Receipt OCR ✨
+- `ai-dashboard.js` - Added receipt scanning functions ✨
+- `src/Services/AIService.php` - Added Vision API support ✨
+- `src/Controllers/AIController.php` - Added receipt endpoint ✨
+- `api_ai.php` - Added receipt route ✨
 
 ---
 
@@ -61,6 +70,11 @@ Visit `http://localhost:8000` and try:
 **Smart Categorization:**
 - Type "coffee at starbucks" → Auto-selects "Food"
 - Type "gas station" → Auto-selects "Transport"
+
+**Receipt OCR:** ✨ NEW
+- Take photo of any receipt
+- Click "Choose Receipt Photo" → Select image
+- Click "Scan Receipt" → Auto-fills everything!
 
 ---
 

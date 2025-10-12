@@ -4,9 +4,10 @@
  * Features:
  * 1. Smart categorization button
  * 2. Natural language expense entry
- * 3. AI insights panel
- * 4. Budget predictions
- * 5. Smart recommendations
+ * 3. Receipt OCR - Extract from photos
+ * 4. AI insights panel
+ * 5. Budget predictions
+ * 6. Smart recommendations
  */
 
 // =============================================================================
@@ -156,7 +157,127 @@ async function parseNaturalLanguage() {
 }
 
 // =============================================================================
-// FEATURE 3: AI SPENDING INSIGHTS
+// FEATURE 3: RECEIPT OCR - EXTRACT FROM PHOTO
+// =============================================================================
+
+/**
+ * Handle receipt image upload and extract expense data
+ */
+async function scanReceipt() {
+    const fileInput = document.getElementById('receipt-file-input');
+    const scanButton = document.getElementById('scan-receipt-btn');
+    
+    if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
+        alert('Please select a receipt image first');
+        return;
+    }
+    
+    const file = fileInput.files[0];
+    
+    // Validate file type
+    const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+    if (!validTypes.includes(file.type)) {
+        alert('Please upload a valid image (JPEG, PNG, or WebP)');
+        return;
+    }
+    
+    // Validate file size (10MB max)
+    if (file.size > 10 * 1024 * 1024) {
+        alert('Image too large. Maximum size is 10MB.');
+        return;
+    }
+    
+    // Show loading
+    scanButton.disabled = true;
+    scanButton.innerHTML = '🤖 Scanning receipt...';
+    
+    try {
+        // Convert image to base64
+        const base64Image = await fileToBase64(file);
+        
+        // Remove data URL prefix for API
+        const imageData = base64Image.replace(/^data:image\/\w+;base64,/, '');
+        
+        // Call AI API
+        const result = await aiRequest('receipt', { 
+            image: imageData,
+            mimeType: file.type 
+        }, 'POST');
+        
+        if (result.success) {
+            // Fill in the form
+            document.getElementById('expense-amount').value = result.amount;
+            document.getElementById('expense-description').value = result.description;
+            document.getElementById('expense-category').value = result.category;
+            
+            // Set date if available
+            if (result.date && document.getElementById('expense-date')) {
+                document.getElementById('expense-date').value = result.date;
+            }
+            
+            // Show success with details
+            const itemsInfo = result.items && result.items.length > 0 
+                ? `\n\nItems found: ${result.items.slice(0, 3).join(', ')}${result.items.length > 3 ? '...' : ''}`
+                : '';
+            
+            alert(`✅ Receipt scanned successfully!\n\nMerchant: ${result.merchant}\nAmount: ${result.amount}\nConfidence: ${result.confidence}${itemsInfo}\n\nReview and submit.`);
+            
+            // Clear file input
+            fileInput.value = '';
+            
+            scanButton.innerHTML = '🧾 Scan Receipt';
+        } else {
+            alert('❌ Could not read receipt: ' + (result.error || 'Unknown error'));
+            scanButton.innerHTML = '🧾 Scan Receipt';
+        }
+    } catch (error) {
+        console.error('Receipt scan error:', error);
+        alert('❌ Error processing receipt: ' + error.message);
+        scanButton.innerHTML = '🧾 Scan Receipt';
+    }
+    
+    scanButton.disabled = false;
+}
+
+/**
+ * Convert file to base64 string
+ */
+function fileToBase64(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = error => reject(error);
+        reader.readAsDataURL(file);
+    });
+}
+
+/**
+ * Trigger file input click when button is clicked
+ */
+function triggerReceiptUpload() {
+    const fileInput = document.getElementById('receipt-file-input');
+    if (fileInput) {
+        fileInput.click();
+    }
+}
+
+/**
+ * Show filename when file is selected
+ */
+function handleReceiptFileSelect() {
+    const fileInput = document.getElementById('receipt-file-input');
+    const fileLabel = document.getElementById('receipt-file-label');
+    
+    if (fileInput && fileInput.files && fileInput.files.length > 0) {
+        const fileName = fileInput.files[0].name;
+        if (fileLabel) {
+            fileLabel.textContent = `📷 ${fileName}`;
+        }
+    }
+}
+
+// =============================================================================
+// FEATURE 4: AI SPENDING INSIGHTS
 // =============================================================================
 
 /**
@@ -187,7 +308,7 @@ async function loadAIInsights() {
 }
 
 // =============================================================================
-// FEATURE 4: BUDGET PREDICTIONS
+// FEATURE 5: BUDGET PREDICTIONS
 // =============================================================================
 
 /**
@@ -230,7 +351,7 @@ async function loadBudgetPrediction() {
 }
 
 // =============================================================================
-// FEATURE 5: SMART RECOMMENDATIONS
+// FEATURE 6: SMART RECOMMENDATIONS
 // =============================================================================
 
 /**
@@ -293,6 +414,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
 window.smartCategorize = smartCategorize;
 window.parseNaturalLanguage = parseNaturalLanguage;
+window.scanReceipt = scanReceipt;
+window.triggerReceiptUpload = triggerReceiptUpload;
+window.handleReceiptFileSelect = handleReceiptFileSelect;
 window.loadAIInsights = loadAIInsights;
 window.loadBudgetPrediction = loadBudgetPrediction;
 window.loadRecommendations = loadRecommendations;

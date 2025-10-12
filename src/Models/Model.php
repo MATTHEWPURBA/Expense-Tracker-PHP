@@ -71,7 +71,7 @@ abstract class Model
             
             $this->trackQuery($sql, [$id], microtime(true) - $startTime);
             
-            return $result ?: null;
+            return $result !== false ? $result : null;
         } catch (Exception $e) {
             error_log("Find failed: " . $e->getMessage());
             return null;
@@ -217,8 +217,7 @@ abstract class Model
             
             $stmt = $this->db->prepare($sql);
             
-            // Set a query timeout to prevent hanging
-            $stmt->setAttribute(\PDO::ATTR_TIMEOUT, 3);
+            // Note: PostgreSQL driver doesn't support ATTR_TIMEOUT
             
             $stmt->execute($params);
             $result = $stmt->fetchAll();
@@ -248,15 +247,14 @@ abstract class Model
             
             $stmt = $this->db->prepare($sql);
             
-            // Set a query timeout to prevent hanging
-            $stmt->setAttribute(\PDO::ATTR_TIMEOUT, 3);
+            // Note: PostgreSQL driver doesn't support ATTR_TIMEOUT
             
             $stmt->execute($params);
             $result = $stmt->fetch();
             
             $this->trackQuery($sql, $params, microtime(true) - $startTime);
             
-            return $result ?: null;
+            return $result !== false ? $result : null;
         } catch (\PDOException $e) {
             $executionTime = microtime(true) - $startTime;
             error_log("Query one failed after {$executionTime}s: " . $e->getMessage());

@@ -7,6 +7,7 @@
  * Endpoints:
  * POST /api_ai.php?action=categorize
  * POST /api_ai.php?action=parse
+ * POST /api_ai.php?action=receipt
  * GET  /api_ai.php?action=insights
  * GET  /api_ai.php?action=predict
  * GET  /api_ai.php?action=recommendations
@@ -34,7 +35,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 $action = $_GET['action'] ?? '';
 
 // Validate action
-$validActions = ['categorize', 'parse', 'insights', 'predict', 'recommendations'];
+$validActions = ['categorize', 'parse', 'receipt', 'insights', 'predict', 'recommendations'];
 
 if (!in_array($action, $validActions)) {
     header('Content-Type: application/json');
@@ -64,6 +65,13 @@ try {
                 throw new Exception('Method not allowed. Use POST.');
             }
             $controller->parseNaturalLanguage();
+            break;
+            
+        case 'receipt':
+            if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+                throw new Exception('Method not allowed. Use POST.');
+            }
+            $controller->scanReceipt();
             break;
             
         case 'insights':
