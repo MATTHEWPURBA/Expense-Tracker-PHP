@@ -33,14 +33,13 @@ foreach ($categoryBreakdown as $cat) {
         <div class="header">
             <h1>💰 Expense Tracker</h1>
             <p>Track your expenses, manage your budget, analyze your spending</p>
-            <div style="margin-top: 15px; display: flex; align-items: center; justify-content: center; gap: 15px;">
-                <span style="font-size: 1rem;">Welcome, <strong><?php echo htmlspecialchars($user['name'] ?? 'User'); ?></strong>!</span>
-                <a href="/settings.php" style="background: rgba(255,255,255,0.2); color: white; padding: 8px 20px; border-radius: 20px; text-decoration: none; font-weight: 600; transition: all 0.3s ease;" onmouseover="this.style.background='rgba(255,255,255,0.3)'" onmouseout="this.style.background='rgba(255,255,255,0.2)'">
-                    ⚙️ Settings
-                </a>
-                <a href="/logout.php" style="background: rgba(255,255,255,0.2); color: white; padding: 8px 20px; border-radius: 20px; text-decoration: none; font-weight: 600; transition: all 0.3s ease;" onmouseover="this.style.background='rgba(255,255,255,0.3)'" onmouseout="this.style.background='rgba(255,255,255,0.2)'">
-                    🚪 Logout
-                </a>
+            <div style="margin-top: 15px;">
+                <span style="font-size: 1rem; color: white; display: block; margin-bottom: 10px;">Welcome, <strong><?php echo htmlspecialchars($user['name'] ?? 'User'); ?></strong>!</span>
+                <button class="mobile-nav-toggle" id="mobileNavToggle" onclick="toggleMobileNav()">☰ Menu</button>
+                <div class="nav-links" id="navLinks">
+                    <a href="/settings.php">⚙️ Settings</a>
+                    <a href="/logout.php">🚪 Logout</a>
+                </div>
             </div>
         </div>
         
@@ -453,6 +452,12 @@ foreach ($categoryBreakdown as $cat) {
     </div>
     
     <script>
+        // Mobile navigation toggle
+        function toggleMobileNav() {
+            const navLinks = document.getElementById('navLinks');
+            navLinks.classList.toggle('active');
+        }
+        
         // Category data for chart
         const categories = <?php echo json_encode($categories); ?>;
         const categoryTotals = <?php echo json_encode($categoryTotals); ?>;

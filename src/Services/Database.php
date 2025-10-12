@@ -72,8 +72,13 @@ class Database
                     PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
                     PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
                     PDO::ATTR_EMULATE_PREPARES => false,
+                    PDO::ATTR_TIMEOUT => 5, // 5 second timeout
+                    PDO::ATTR_PERSISTENT => false, // Disable persistent connections to avoid locks
                 ]
             );
+            
+            // Set PostgreSQL statement timeout to 5 seconds
+            $this->connection->exec("SET statement_timeout = 5000");
         } catch (PDOException $e) {
             error_log("Database connection failed: " . $e->getMessage());
             throw new Exception("Database connection failed");

@@ -27,6 +27,11 @@ body {
     padding: 20px;
     line-height: 1.6;
     color: var(--dark);
+    /* Improve font rendering on mobile */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    /* Prevent horizontal scroll */
+    overflow-x: hidden;
 }
 
 .container {
@@ -51,6 +56,52 @@ body {
 .header p {
     font-size: 1.1rem;
     opacity: 0.95;
+}
+
+/* Mobile navigation */
+.mobile-nav-toggle {
+    display: none;
+    background: rgba(255,255,255,0.2);
+    color: white;
+    border: none;
+    padding: 10px 15px;
+    border-radius: 8px;
+    font-size: 1.5rem;
+    cursor: pointer;
+    margin: 10px auto;
+    transition: all 0.3s ease;
+}
+
+.mobile-nav-toggle:active {
+    transform: scale(0.95);
+}
+
+.nav-links {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 15px;
+    flex-wrap: wrap;
+}
+
+.nav-links a {
+    background: rgba(255,255,255,0.2);
+    color: white;
+    padding: 10px 20px;
+    border-radius: 20px;
+    text-decoration: none;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    /* Improve touch targets on mobile */
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.nav-links a:hover {
+    background: rgba(255,255,255,0.3);
+    transform: translateY(-2px);
 }
 
 .stats-grid {
@@ -133,12 +184,25 @@ body {
 .form-group select,
 .form-group textarea {
     width: 100%;
-    padding: 12px 15px;
+    padding: 14px 15px;
     border: 2px solid var(--border);
     border-radius: 8px;
     font-size: 1rem;
     transition: all 0.3s ease;
     font-family: inherit;
+    /* Improve mobile input experience */
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    /* Better touch targets (min 44px height) */
+    min-height: 44px;
+}
+
+.form-group select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23718096' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 15px center;
+    padding-right: 40px;
 }
 
 .form-group input:focus,
@@ -151,11 +215,11 @@ body {
 
 .form-group textarea {
     resize: vertical;
-    min-height: 80px;
+    min-height: 100px;
 }
 
 .btn {
-    padding: 12px 30px;
+    padding: 14px 30px;
     border: none;
     border-radius: 8px;
     font-size: 1rem;
@@ -166,6 +230,18 @@ body {
     align-items: center;
     gap: 8px;
     text-decoration: none;
+    /* Better touch targets */
+    min-height: 44px;
+    justify-content: center;
+    /* Prevent text selection on tap */
+    -webkit-user-select: none;
+    user-select: none;
+    /* Improve tap feedback */
+    -webkit-tap-highlight-color: transparent;
+}
+
+.btn:active {
+    transform: scale(0.98);
 }
 
 .btn-primary {
@@ -180,11 +256,16 @@ body {
     box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
 }
 
+.btn-primary:active {
+    transform: scale(0.98);
+}
+
 .btn-danger {
     background: var(--danger);
     color: white;
-    padding: 6px 12px;
-    font-size: 0.85rem;
+    padding: 10px 16px;
+    font-size: 0.9rem;
+    min-height: 44px;
 }
 
 .btn-danger:hover {
@@ -219,12 +300,18 @@ body {
     border-radius: 10px;
     margin-bottom: 12px;
     transition: all 0.3s ease;
+    /* Improve touch interaction on mobile */
+    min-height: 60px;
 }
 
 .expense-item:hover {
     border-color: var(--primary);
     box-shadow: var(--shadow-sm);
     transform: translateX(-3px);
+}
+
+.expense-item:active {
+    background: var(--light);
 }
 
 .expense-info {
@@ -436,7 +523,38 @@ body {
     }
     
     .stats-grid {
-        grid-template-columns: 1fr;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 15px;
+    }
+}
+
+@media (max-width: 768px) {
+    .mobile-nav-toggle {
+        display: block;
+    }
+    
+    .nav-links {
+        flex-direction: column;
+        max-height: 0;
+        overflow: hidden;
+        transition: max-height 0.3s ease-out;
+    }
+    
+    .nav-links.active {
+        max-height: 200px;
+    }
+    
+    .nav-links a {
+        width: 100%;
+        max-width: 300px;
+    }
+    
+    .stat-card .value {
+        font-size: 1.5rem;
+    }
+    
+    .stat-card .icon {
+        font-size: 2rem;
     }
 }
 
@@ -445,26 +563,116 @@ body {
         padding: 10px;
     }
     
+    .header h1 {
+        font-size: 1.8rem;
+    }
+    
+    .header p {
+        font-size: 0.95rem;
+    }
+    
+    .stats-grid {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+    
+    .stat-card {
+        padding: 20px;
+    }
+    
     .card {
         padding: 20px;
+        border-radius: 12px;
+    }
+    
+    .card h2 {
+        font-size: 1.3rem;
     }
     
     .expense-item {
         flex-direction: column;
         align-items: flex-start;
-        gap: 10px;
+        gap: 12px;
+        padding: 15px;
     }
     
     .expense-amount {
         margin-right: 0;
+        font-size: 1.2rem;
+    }
+    
+    .expense-header {
+        flex-wrap: wrap;
+    }
+    
+    .category-badge {
+        font-size: 0.8rem;
+        padding: 3px 10px;
+    }
+    
+    .expense-description {
+        font-size: 0.95rem;
     }
     
     .chart-container {
-        height: 300px;
+        height: 280px;
     }
     
     .export-buttons {
         grid-template-columns: repeat(2, 1fr);
+        gap: 8px;
+    }
+    
+    .btn-export {
+        padding: 12px 10px;
+        font-size: 0.85rem;
+    }
+    
+    /* AI Features Mobile Optimization */
+    .ai-features-container {
+        grid-template-columns: 1fr;
+        gap: 15px;
+    }
+    
+    .ai-feature {
+        padding: 20px;
+    }
+    
+    .ai-feature h3 {
+        font-size: 1.2em;
+    }
+    
+    .nl-input {
+        font-size: 14px;
+        padding: 12px;
+    }
+    
+    .ai-btn {
+        width: 100%;
+        padding: 12px 20px;
+        font-size: 14px;
+    }
+    
+    .predicted-amount {
+        font-size: 2em;
+    }
+}
+
+@media (max-width: 400px) {
+    .header h1 {
+        font-size: 1.5rem;
+    }
+    
+    .stat-card .value {
+        font-size: 1.3rem;
+    }
+    
+    .expense-list {
+        max-height: 400px;
+    }
+    
+    .export-buttons {
+        grid-template-columns: 1fr;
     }
 }
 

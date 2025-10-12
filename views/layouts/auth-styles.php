@@ -25,6 +25,11 @@ body {
     align-items: center;
     justify-content: center;
     padding: 20px;
+    /* Improve mobile font rendering */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    /* Prevent horizontal scroll */
+    overflow-x: hidden;
 }
 
 .auth-container {
@@ -76,17 +81,32 @@ body {
     font-size: 0.9rem;
 }
 
-.form-group input {
+.form-group input,
+.form-group select {
     width: 100%;
-    padding: 12px 15px;
+    padding: 14px 15px;
     border: 2px solid var(--border);
     border-radius: 8px;
     font-size: 1rem;
     transition: all 0.3s ease;
     font-family: inherit;
+    /* Better touch targets (min 44px height) */
+    min-height: 44px;
+    /* Improve mobile input experience */
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
 }
 
-.form-group input:focus {
+.form-group select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23718096' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 15px center;
+    padding-right: 40px;
+}
+
+.form-group input:focus,
+.form-group select:focus {
     outline: none;
     border-color: var(--primary);
     box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
@@ -103,6 +123,13 @@ body {
     transition: all 0.3s ease;
     background: linear-gradient(135deg, var(--primary), var(--secondary));
     color: white;
+    /* Better touch target */
+    min-height: 48px;
+    /* Prevent text selection on tap */
+    -webkit-user-select: none;
+    user-select: none;
+    /* Improve tap feedback */
+    -webkit-tap-highlight-color: transparent;
 }
 
 .btn:hover {
@@ -111,7 +138,7 @@ body {
 }
 
 .btn:active {
-    transform: translateY(0);
+    transform: scale(0.98);
 }
 
 .alert {
@@ -155,13 +182,48 @@ body {
     margin-top: 5px;
 }
 
-@media (max-width: 500px) {
+@media (max-width: 600px) {
+    body {
+        padding: 15px;
+    }
+    
     .auth-container {
         padding: 30px 20px;
+        border-radius: 15px;
     }
     
     .logo h1 {
         font-size: 2rem;
+    }
+    
+    .logo p {
+        font-size: 1rem;
+    }
+    
+    .form-group label {
+        font-size: 0.85rem;
+    }
+    
+    .password-requirements {
+        font-size: 0.8rem;
+    }
+}
+
+@media (max-width: 400px) {
+    body {
+        padding: 10px;
+    }
+    
+    .auth-container {
+        padding: 25px 15px;
+    }
+    
+    .logo h1 {
+        font-size: 1.8rem;
+    }
+    
+    .form-group {
+        margin-bottom: 15px;
     }
 }
 </style>

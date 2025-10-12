@@ -216,12 +216,22 @@ abstract class Model
             $startTime = microtime(true);
             
             $stmt = $this->db->prepare($sql);
+            
+            // Set a query timeout to prevent hanging
+            $stmt->setAttribute(\PDO::ATTR_TIMEOUT, 3);
+            
             $stmt->execute($params);
             $result = $stmt->fetchAll();
             
             $this->trackQuery($sql, $params, microtime(true) - $startTime);
             
             return $result;
+        } catch (\PDOException $e) {
+            $executionTime = microtime(true) - $startTime;
+            error_log("Query failed after {$executionTime}s: " . $e->getMessage());
+            error_log("SQL: $sql");
+            error_log("Params: " . json_encode($params));
+            return [];
         } catch (Exception $e) {
             error_log("Query failed: " . $e->getMessage());
             return [];
@@ -237,12 +247,22 @@ abstract class Model
             $startTime = microtime(true);
             
             $stmt = $this->db->prepare($sql);
+            
+            // Set a query timeout to prevent hanging
+            $stmt->setAttribute(\PDO::ATTR_TIMEOUT, 3);
+            
             $stmt->execute($params);
             $result = $stmt->fetch();
             
             $this->trackQuery($sql, $params, microtime(true) - $startTime);
             
             return $result ?: null;
+        } catch (\PDOException $e) {
+            $executionTime = microtime(true) - $startTime;
+            error_log("Query one failed after {$executionTime}s: " . $e->getMessage());
+            error_log("SQL: $sql");
+            error_log("Params: " . json_encode($params));
+            return null;
         } catch (Exception $e) {
             error_log("Query one failed: " . $e->getMessage());
             return null;

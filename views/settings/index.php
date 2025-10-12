@@ -59,12 +59,26 @@
             cursor: pointer;
             transition: all 0.3s ease;
             background: white;
+            /* Better touch target */
+            min-height: 80px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            /* Prevent text selection on tap */
+            -webkit-user-select: none;
+            user-select: none;
+            /* Improve tap feedback */
+            -webkit-tap-highlight-color: transparent;
         }
         
         .currency-label:hover {
             border-color: var(--primary);
             transform: translateY(-2px);
             box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        
+        .currency-label:active {
+            transform: scale(0.98);
         }
         
         .currency-option input[type="radio"]:checked + .currency-label {
@@ -126,6 +140,69 @@
         .search-currency:focus {
             outline: none;
             border-color: var(--primary);
+        }
+        
+        /* Mobile responsive styles */
+        @media (max-width: 768px) {
+            .settings-container {
+                padding: 0;
+            }
+            
+            .currency-grid {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 10px;
+            }
+            
+            .currency-label {
+                padding: 12px;
+            }
+            
+            .currency-symbol {
+                font-size: 1.2rem;
+            }
+            
+            .currency-name {
+                font-size: 0.9rem;
+            }
+            
+            .currency-code {
+                font-size: 0.75rem;
+            }
+        }
+        
+        @media (max-width: 600px) {
+            .settings-section {
+                padding: 20px;
+                border-radius: 10px;
+            }
+            
+            .settings-section h2 {
+                font-size: 1.3rem;
+            }
+            
+            .back-button {
+                padding: 10px 15px;
+                font-size: 0.9rem;
+            }
+            
+            .save-button {
+                max-width: 100%;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .currency-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .settings-section {
+                padding: 15px;
+            }
+            
+            .search-currency {
+                padding: 10px 12px;
+                font-size: 0.95rem;
+            }
         }
     </style>
 </head>
