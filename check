@@ -1,0 +1,51 @@
+#!/bin/bash
+
+###############################################################################
+# Expense Tracker - Check Command
+# Super simple command to check if everything is working
+###############################################################################
+
+# Colors for output
+GREEN='\033[0;32m'
+RED='\033[0;31m'
+CYAN='\033[0;36m'
+NC='\033[0m' # No Color
+
+# Project directory
+PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$PROJECT_DIR"
+
+echo -e "${CYAN}💰 Checking Expense Tracker...${NC}"
+echo ""
+
+# Check PHP
+PHP_VERSION=$(php -r "echo PHP_VERSION;" 2>/dev/null)
+if [ $? -eq 0 ]; then
+    echo -e "${GREEN}✓ PHP $PHP_VERSION${NC}"
+else
+    echo -e "${RED}✗ PHP not found${NC}"
+fi
+
+# Check config
+if [ -f "config.php" ]; then
+    echo -e "${GREEN}✓ Config file${NC}"
+else
+    echo -e "${RED}✗ Config file missing${NC}"
+fi
+
+# Check database
+if php -r "require_once 'bootstrap.php';" 2>/dev/null; then
+    echo -e "${GREEN}✓ Database connection${NC}"
+else
+    echo -e "${RED}✗ Database connection failed${NC}"
+fi
+
+# Check server
+if curl -s -o /dev/null -w "%{http_code}" http://localhost:8000 > /dev/null 2>&1; then
+    echo -e "${GREEN}✓ Server running at http://localhost:8000${NC}"
+else
+    echo -e "${CYAN}ℹ Server not running${NC}"
+fi
+
+echo ""
+

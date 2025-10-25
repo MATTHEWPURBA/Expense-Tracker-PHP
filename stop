@@ -1,0 +1,23 @@
+#!/bin/bash
+
+###############################################################################
+# Expense Tracker - Stop Command
+# Super simple command to stop the server
+###############################################################################
+
+# Colors for output
+GREEN='\033[0;32m'
+CYAN='\033[0;36m'
+NC='\033[0m' # No Color
+
+echo -e "${CYAN}💰 Stopping Expense Tracker...${NC}"
+
+# Find and kill PHP server processes
+PIDS=$(pgrep -f "php -S localhost:8000")
+if [ -n "$PIDS" ]; then
+    echo "$PIDS" | xargs kill
+    echo -e "${GREEN}✓ Server stopped${NC}"
+else
+    echo -e "${CYAN}No server running${NC}"
+fi
+

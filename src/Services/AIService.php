@@ -61,7 +61,7 @@ class AIService
                 'temperature' => 0.7,
                 'topK' => 40,
                 'topP' => 0.95,
-                'maxOutputTokens' => 1024,
+                'maxOutputTokens' => 2048,
             ]
         ];
         
@@ -108,7 +108,20 @@ class AIService
         if (!$text) {
             error_log("[AI] ❌ No text found in response structure");
             error_log("[AI] Response keys: " . json_encode(array_keys($result)));
-            return null;
+            error_log("[AI] Full response structure: " . json_encode($result, JSON_PRETTY_PRINT));
+            
+            // Try alternative response structure
+            if (isset($result['candidates'][0]['content']['parts'][0]['text'])) {
+                $text = $result['candidates'][0]['content']['parts'][0]['text'];
+            } elseif (isset($result['candidates'][0]['text'])) {
+                $text = $result['candidates'][0]['text'];
+            } elseif (isset($result['text'])) {
+                $text = $result['text'];
+            }
+            
+            if (!$text) {
+                return null;
+            }
         }
         
         error_log("[AI] ✅ Success! Response: " . substr($text, 0, 200) . (strlen($text) > 200 ? '...' : ''));
@@ -276,9 +289,11 @@ IMPORTANT PARSING RULES:
 1. Accept ANY language (English, Indonesian, Chinese, Spanish, etc.)
 2. Recognize amounts in ANY format:
    - \"50\" or \"50000\" = exact number
-   - \"50 ribu\" or \"50k\" or \"50 thousand\" = 50,000
+   - \"50 ribu\" = 50,000 (multiply by 1000)
+   - \"487494 ribu\" = 487,494 (use number as-is, ribu is just currency indicator)
    - \"1 juta\" or \"1m\" or \"1 million\" = 1,000,000
    - Handle decimals: \"50.5\" or \"50,5\" = 50.5
+   - For large numbers with \"ribu\", use the number directly (ribu = thousand indicator)
 3. Currency keywords to recognize (ignore in amount):
    - USD: dollar, dollars, USD, \$
    - IDR: rupiah, ribu, juta, IDR, Rp
@@ -287,12 +302,15 @@ IMPORTANT PARSING RULES:
 4. Extract the numeric amount ONLY
 
 Examples:
-- \"beli pizza 500 ribu\" → amount: 500000, description: \"pizza\"
+- \"beli pizza 50 ribu\" → amount: 50000, description: \"pizza\"
 - \"I spent \$50 on coffee\" → amount: 50, description: \"coffee\"
 - \"買了100元的咖啡\" → amount: 100, description: \"咖啡/coffee\"
 - \"uber ke kantor 35k\" → amount: 35000, description: \"uber ke kantor\"
+- \"487494 ribu\" → amount: 487494, description: \"expense\"
+- \"bayar tagihan di bulan oktober dan november\" → amount: [amount], description: \"[description] (paid twice)\"
+- \"beli cakwe 2 kali sejumlah 20000\" → amount: 40000, description: \"cakwe (2 times)\"
 
-Parse and return ONLY a JSON object with this exact format:
+Parse and return ONLY a JSON object with this EXACT format (no extra text, no explanations):
 {
   \"amount\": <number>,
   \"description\": \"<short description>\",
@@ -302,11 +320,19 @@ Parse and return ONLY a JSON object with this exact format:
 Categories (use ID only):
 - food: Food & Dining (restaurants, groceries, snacks, pizza, coffee)
 - transport: Transportation (uber, taxi, gas, parking, bus)
-- utilities: Utilities (electricity, water, internet, phone)
+- utilities: Utilities (electricity, water, internet, phone, payment services, bills)
 - entertainment: Entertainment (movies, games, subscriptions)
 - healthcare: Healthcare (doctor, medicine, gym)
 - shopping: Shopping (clothes, electronics, general shopping)
 - other: Other (anything else)
+
+IMPORTANT: 
+- Return ONLY the JSON object
+- Do not include any explanations or additional text
+- Ensure the JSON is complete with all required fields
+- Use proper JSON syntax with double quotes
+- If text mentions multiple months/periods (like \"di bulan oktober dan november\"), indicate this in the description
+- For \"ribu\" amounts, use the number as-is (487494 ribu = 487494, not 487494000)
 
 If you cannot parse the expense, return: {\"error\": \"Could not parse expense\"}
 
@@ -334,6 +360,23 @@ Respond with ONLY the JSON, no other text.";
             $response = $matches[1] ?? $response;
         }
         
+        // Handle incomplete JSON responses
+        if (strpos($response, '```json') !== false) {
+            // If we still have code block markers, extract everything after the first one
+            $parts = explode('```json', $response);
+            if (count($parts) > 1) {
+                $response = trim($parts[1]);
+                // Remove any trailing ``` if present
+                $response = rtrim($response, '`');
+            }
+        }
+        
+        // Try to fix incomplete JSON by adding missing closing brace
+        if (substr_count($response, '{') > substr_count($response, '}')) {
+            $response .= '}';
+            error_log("[AI Parse] Added missing closing brace to JSON");
+        }
+        
         error_log("[AI Parse] JSON to parse: $response");
         
         $data = json_decode($response, true);
@@ -342,6 +385,29 @@ Respond with ONLY the JSON, no other text.";
             error_log("[AI Parse] ❌ Failed to decode JSON");
             error_log("[AI Parse] JSON error: " . json_last_error_msg());
             error_log("[AI Parse] Original response: " . substr($originalResponse, 0, 500));
+            
+            // Try to extract partial data from incomplete JSON
+            if (preg_match('/"amount"\s*:\s*(\d+)/', $response, $amountMatches)) {
+                $amount = floatval($amountMatches[1]);
+                $description = 'Unknown expense';
+                $category = 'other';
+                
+                if (preg_match('/"description"\s*:\s*"([^"]*)/', $response, $descMatches)) {
+                    $description = $descMatches[1];
+                }
+                
+                if (preg_match('/"category"\s*:\s*"([^"]*)/', $response, $catMatches)) {
+                    $category = $catMatches[1];
+                }
+                
+                error_log("[AI Parse] ✅ Extracted partial data from incomplete JSON");
+                return [
+                    'amount' => $amount,
+                    'description' => $description,
+                    'category' => $category
+                ];
+            }
+            
             return null;
         }
         
@@ -361,6 +427,62 @@ Respond with ONLY the JSON, no other text.";
             'description' => $data['description'] ?? '',
             'category' => $data['category'] ?? 'other'
         ];
+        
+        // Check if the original text indicates multiple payments
+        $originalText = strtolower($text);
+        $hasMultiplePayments = false;
+        $multiplier = 1;
+        
+        // Check if AI already handled the multiple payments in description
+        $aiAlreadyHandled = false;
+        if (preg_match('/\((\d+)\s+times?\)/', $result['description'], $descMatches)) {
+            $aiAlreadyHandled = true;
+            error_log("[AI Parse] ✅ AI already handled multiple payments in description: {$descMatches[1]} times");
+        }
+        
+        // Only apply additional logic if AI hasn't already handled it
+        if (!$aiAlreadyHandled) {
+            // Check for "kali" (times) patterns like "2 kali", "3 kali", etc.
+            if (preg_match('/(\d+)\s+kali/', $originalText, $matches)) {
+                $multiplier = intval($matches[1]);
+                $hasMultiplePayments = true;
+                error_log("[AI Parse] ✅ Detected '{$matches[1]} kali' pattern - multiplier: $multiplier");
+            }
+            // Check for "times" patterns like "2 times", "3 times", etc.
+            elseif (preg_match('/(\d+)\s+times/', $originalText, $matches)) {
+                $multiplier = intval($matches[1]);
+                $hasMultiplePayments = true;
+                error_log("[AI Parse] ✅ Detected '{$matches[1]} times' pattern - multiplier: $multiplier");
+            }
+            // Check for month/period patterns
+            elseif (preg_match('/di\s+bulan\s+\w+\s+dan\s+\w+/', $originalText) || 
+                    preg_match('/bulan\s+\w+\s+dan\s+\w+/', $originalText) ||
+                    preg_match('/\w+\s+dan\s+\w+\s+bulan/', $originalText)) {
+                $multiplier = 2; // Default to 2 for month patterns
+                $hasMultiplePayments = true;
+                error_log("[AI Parse] ✅ Detected month/period pattern - multiplier: $multiplier");
+            }
+        }
+        
+        if ($hasMultiplePayments) {
+            // Multiply the amount by the detected multiplier
+            $result['amount'] = $result['amount'] * $multiplier;
+            
+            // Add appropriate description based on multiplier
+            if ($multiplier == 2) {
+                if (strpos($result['description'], '(paid twice)') === false && 
+                    strpos($result['description'], '(2 times)') === false) {
+                    $result['description'] = $result['description'] . ' (paid twice)';
+                }
+            } else {
+                if (strpos($result['description'], "($multiplier times)") === false && 
+                    strpos($result['description'], '(paid twice)') === false) {
+                    $result['description'] = $result['description'] . " ($multiplier times)";
+                }
+            }
+            
+            error_log("[AI Parse] ✅ Detected multiple payments - multiplied amount by $multiplier to: {$result['amount']}");
+        }
         
         error_log("[AI Parse] ✅ Successfully parsed! Amount: {$result['amount']}, Description: '{$result['description']}', Category: {$result['category']}");
         

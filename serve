@@ -1,0 +1,53 @@
+#!/bin/bash
+
+###############################################################################
+# Expense Tracker - Serve Command
+# Super simple command to start the server (like php artisan serve)
+###############################################################################
+
+# Colors for output
+GREEN='\033[0;32m'
+CYAN='\033[0;36m'
+NC='\033[0m' # No Color
+
+# Project directory
+PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$PROJECT_DIR"
+
+echo -e "${CYAN}💰 Starting Expense Tracker...${NC}"
+
+# Check if server is already running
+if curl -s -o /dev/null -w "%{http_code}" http://localhost:8000 > /dev/null 2>&1; then
+    echo -e "${GREEN}✓ Server is already running at http://localhost:8000${NC}"
+    echo -e "${CYAN}Opening browser...${NC}"
+    
+    # Open browser
+    if command -v xdg-open &> /dev/null; then
+        xdg-open "http://localhost:8000" &> /dev/null
+    elif command -v open &> /dev/null; then
+        open "http://localhost:8000" &> /dev/null
+    fi
+    exit 0
+fi
+
+# Check if port 8000 is available
+if lsof -Pi :8000 -sTCP:LISTEN -t >/dev/null 2>&1; then
+    echo -e "${CYAN}Port 8000 is busy, trying port 8001...${NC}"
+    PORT=8001
+else
+    PORT=8000
+fi
+
+echo -e "${GREEN}✓ Starting server on http://localhost:$PORT${NC}"
+echo -e "${CYAN}Press Ctrl+C to stop${NC}"
+echo ""
+
+# Open browser (in background so it doesn't interfere with server output)
+if command -v xdg-open &> /dev/null; then
+    xdg-open "http://localhost:$PORT" &> /dev/null &
+elif command -v open &> /dev/null; then
+    open "http://localhost:$PORT" &> /dev/null &
+fi
+
+# Start the server (this will show all logs and errors)
+php -S localhost:$PORT
