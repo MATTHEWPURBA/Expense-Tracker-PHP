@@ -22,8 +22,21 @@ use ExpenseTracker\Services\Auth;
 // Enable debug mode (can be disabled in production)
 define('DEBUG_MODE', true);
 
-// Set CORS headers for development
-header('Access-Control-Allow-Origin: *');
+// Set CORS headers - handle same-origin and cross-origin properly
+// For same-origin requests, we don't need CORS, but set it for API consistency
+$requestOrigin = $_SERVER['HTTP_ORIGIN'] ?? '';
+$serverName = $_SERVER['SERVER_NAME'] ?? '';
+$httpHost = $_SERVER['HTTP_HOST'] ?? '';
+
+// If request is from same origin, use that; otherwise allow all (for development)
+if ($requestOrigin && (strpos($requestOrigin, $serverName) !== false || strpos($requestOrigin, $httpHost) !== false)) {
+    header('Access-Control-Allow-Origin: ' . $requestOrigin);
+    header('Access-Control-Allow-Credentials: true');
+} else {
+    // Allow all origins for API endpoints (can be restricted in production)
+    header('Access-Control-Allow-Origin: *');
+}
+
 header('Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Debug');
 
@@ -54,6 +67,7 @@ $router->get('/api/health', function() {
         'version' => '2.0.0'
     ], 'API is running');
 });
+$router->publicRoute('GET', '/api/health'); // Mark as public route
 
 /**
  * Get all available routes
@@ -64,9 +78,10 @@ $router->get('/api/routes', function() use ($router) {
         'routes' => $router->getRoutes()
     ], 'Available API routes');
 });
+$router->publicRoute('GET', '/api/routes'); // Mark as public route
 
 // =============================================================================
-// AUTHENTICATION ROUTES
+// AUTHENTICATION ROUTES (Public - No authentication required)
 // =============================================================================
 
 /**
@@ -74,18 +89,21 @@ $router->get('/api/routes', function() use ($router) {
  * POST /api/auth/login
  */
 $router->post('/api/auth/login', [AuthController::class, 'login']);
+$router->publicRoute('POST', '/api/auth/login'); // Mark as public route
 
 /**
  * User Register
  * POST /api/auth/register
  */
 $router->post('/api/auth/register', [AuthController::class, 'register']);
+$router->publicRoute('POST', '/api/auth/register'); // Mark as public route
 
 /**
  * User Logout
  * POST /api/auth/logout
  */
 $router->post('/api/auth/logout', [AuthController::class, 'logout']);
+$router->publicRoute('POST', '/api/auth/logout'); // Mark as public route
 
 // =============================================================================
 // PROTECTED ROUTES (Authentication required)

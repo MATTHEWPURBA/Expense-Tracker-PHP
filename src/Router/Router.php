@@ -16,6 +16,7 @@ class Router
 {
     private array $routes = [];
     private array $middlewares = [];
+    private array $publicRoutes = []; // Routes that don't require authentication
     private string $basePath = '';
     private array $debugInfo = [];
     private $logger;
@@ -74,14 +75,33 @@ class Router
      */
     private function addRoute(string $method, string $path, callable|array $handler): self
     {
+        $fullPath = $this->basePath . $path;
         $this->routes[] = [
             'method' => $method,
-            'path' => $this->basePath . $path,
+            'path' => $fullPath,
             'handler' => $handler,
-            'pattern' => $this->convertToPattern($this->basePath . $path)
+            'pattern' => $this->convertToPattern($fullPath)
         ];
         
         return $this;
+    }
+    
+    /**
+     * Mark a route as public (no authentication required)
+     */
+    public function publicRoute(string $method, string $path): self
+    {
+        $this->publicRoutes[] = $method . ' ' . $this->basePath . $path;
+        return $this;
+    }
+    
+    /**
+     * Check if a route is public
+     */
+    private function isPublicRoute(string $method, string $path): bool
+    {
+        $routeKey = $method . ' ' . $path;
+        return in_array($routeKey, $this->publicRoutes);
     }
     
     /**
@@ -102,13 +122,37 @@ class Router
         $this->logger = RequestLogger::getInstance();
         
         $method = $_SERVER['REQUEST_METHOD'];
-        $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
         
-        // Remove script name from path if present
-        $scriptName = $_SERVER['SCRIPT_NAME'];
-        $scriptDir = dirname($scriptName);
-        if ($scriptDir !== '/') {
-            $path = str_replace($scriptDir, '', $path);
+        // Get path from REQUEST_URI (may have been modified by physical API files)
+        $path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH);
+        $scriptName = $_SERVER['SCRIPT_NAME'] ?? '';
+        
+        // Handle different routing scenarios:
+        // 1. Physical API files (e.g., /api/auth/login.php) - REQUEST_URI already set correctly
+        // 2. Rewritten requests via .htaccess (e.g., /api/auth/login -> api.php)
+        // 3. Direct api.php access
+        
+        // If REQUEST_URI was modified by a physical API file, use it directly
+        if (isset($_SERVER['ORIGINAL_REQUEST_URI'])) {
+            // REQUEST_URI was already set correctly by the physical API file
+            // No modification needed
+        } 
+        // If accessing api.php directly or via rewrite, use REQUEST_URI as-is
+        elseif (basename($scriptName) === 'api.php' || strpos($path, '/api/') === 0) {
+            // Keep the full path including /api/ prefix
+            // Path is already correct from REQUEST_URI
+        } 
+        // For other direct file access, remove script directory from path
+        else {
+            $scriptDir = dirname($scriptName);
+            if ($scriptDir !== '/' && $scriptDir !== '.') {
+                $path = str_replace($scriptDir, '', $path);
+            }
+        }
+        
+        // Normalize path (remove leading/trailing slashes except root)
+        if ($path !== '/') {
+            $path = rtrim($path, '/');
         }
         
         // Store debug info
@@ -145,9 +189,11 @@ class Router
                 'params' => $params
             ];
             
-            // Run middlewares
-            foreach ($this->middlewares as $middleware) {
-                $middleware();
+            // Run middlewares only if route is not public
+            if (!$this->isPublicRoute($method, $route['path'])) {
+                foreach ($this->middlewares as $middleware) {
+                    $middleware();
+                }
             }
             
             // Execute handler
@@ -262,9 +308,25 @@ class Router
         
         error_log("API Error: " . $e->getMessage() . " in " . $e->getFile() . ":" . $e->getLine());
         
+        $errorMessage = $e->getMessage();
+        
+        // Provide helpful hints for database connection errors
+        $hint = null;
+        if (strpos($errorMessage, 'Database connection') !== false) {
+            $hint = 'Check your database configuration in config.php. Verify database credentials and that the PostgreSQL extension is installed.';
+        } elseif (strpos($errorMessage, 'PostgreSQL extension') !== false) {
+            $hint = 'The PostgreSQL extension (pgsql or pdo_pgsql) is not installed on this server. Contact your hosting provider.';
+        } elseif (strpos($errorMessage, 'Cannot connect to database server') !== false) {
+            $hint = 'Cannot reach the database server. Check network connectivity, host/port settings, and firewall rules.';
+        } elseif (strpos($errorMessage, 'authentication failed') !== false) {
+            $hint = 'Database authentication failed. Check username and password in config.php.';
+        } elseif (strpos($errorMessage, 'does not exist') !== false) {
+            $hint = 'Database does not exist. Check database name in config.php.';
+        }
+        
         $errorResponse = [
             'success' => false,
-            'error' => $e->getMessage(),
+            'error' => $errorMessage,
             'debug' => array_merge($this->debugInfo, [
                 'error' => [
                     'message' => $e->getMessage(),
@@ -277,6 +339,10 @@ class Router
                 ]
             ])
         ];
+        
+        if ($hint) {
+            $errorResponse['hint'] = $hint;
+        }
         
         echo json_encode($errorResponse, JSON_PRETTY_PRINT);
     }

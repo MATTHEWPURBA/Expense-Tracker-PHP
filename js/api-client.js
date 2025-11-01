@@ -9,7 +9,10 @@
 
 class ApiClient {
     constructor(options = {}) {
-        this.baseUrl = options.baseUrl || '/api.php';
+        // Use physical file structure for InfinityFree compatibility
+        // Base URL is empty - endpoints should be full paths like /api/auth/login.php
+        this.baseUrl = options.baseUrl || '';
+        this.usePhpExtension = options.usePhpExtension !== undefined ? options.usePhpExtension : true;
         this.debug = options.debug !== undefined ? options.debug : true;
         this.requestLog = [];
         this.maxLogSize = 100; // Keep last 100 requests
@@ -19,7 +22,17 @@ class ApiClient {
      * Make an API request
      */
     async request(method, endpoint, data = null, options = {}) {
-        const url = `${this.baseUrl}${endpoint}${this.debug ? '?debug=true' : ''}`;
+        // Normalize endpoint - add .php extension if using physical files
+        let normalizedEndpoint = endpoint;
+        if (this.usePhpExtension && !normalizedEndpoint.endsWith('.php')) {
+            // Convert /api/auth/login to /api/auth/login.php
+            // But keep /api.php as-is
+            if (!normalizedEndpoint.includes('.php')) {
+                normalizedEndpoint = normalizedEndpoint + '.php';
+            }
+        }
+        
+        const url = `${this.baseUrl}${normalizedEndpoint}${this.debug ? '?debug=true' : ''}`;
         const startTime = performance.now();
         
         const config = {
@@ -45,14 +58,15 @@ class ApiClient {
             id: this.generateRequestId(),
             timestamp: new Date().toISOString(),
             method: config.method,
-            endpoint: endpoint,
+            endpoint: normalizedEndpoint, // Use normalized endpoint for logging
+            originalEndpoint: endpoint, // Keep original for reference
             url: url,
             data: data,
             headers: config.headers
         };
 
         try {
-            console.group(`🌐 API Request: ${config.method} ${endpoint}`);
+            console.group(`🌐 API Request: ${config.method} ${normalizedEndpoint}`);
             console.log('📤 Request:', requestInfo);
 
             const response = await fetch(url, config);

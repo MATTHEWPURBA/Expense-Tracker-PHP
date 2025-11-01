@@ -6,6 +6,11 @@
     RewriteEngine On
     RewriteBase /
     
+    # API Routing: Route all /api/* requests to api.php
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^api/(.*)$ api.php [QSA,L]
+    
     # Redirect to HTTPS (if available)
     # RewriteCond %{HTTPS} off
     # RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]

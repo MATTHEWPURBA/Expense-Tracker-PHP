@@ -46,8 +46,6 @@ temp/
 # OS generated files
 desktop.ini
 
-# Configuration files with sensitive data
-config.php
 
 # Environment files (if you add any)
 .env

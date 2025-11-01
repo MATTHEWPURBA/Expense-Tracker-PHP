@@ -79,8 +79,34 @@ class Database
             // Set PostgreSQL statement timeout to 5 seconds
             $this->connection->exec("SET statement_timeout = 5000");
         } catch (PDOException $e) {
-            error_log("Database connection failed: " . $e->getMessage());
-            throw new Exception("Database connection failed");
+            $errorMessage = $e->getMessage();
+            $errorCode = $e->getCode();
+            
+            // Log detailed error
+            error_log("Database connection failed: " . $errorMessage);
+            error_log("Connection details: host=" . config('db_host') . ", db=" . config('db_name') . ", user=" . config('db_user'));
+            
+            // Check if pgsql extension is available
+            if (!extension_loaded('pgsql') && !extension_loaded('pdo_pgsql')) {
+                throw new Exception("PostgreSQL extension (pgsql or pdo_pgsql) is not installed on this server. Please contact your hosting provider.");
+            }
+            
+            // Provide more helpful error messages
+            $helpfulMessage = "Database connection failed";
+            if (strpos($errorMessage, 'could not connect') !== false) {
+                $helpfulMessage = "Cannot connect to database server. Check host, port, and credentials.";
+            } elseif (strpos($errorMessage, 'authentication failed') !== false) {
+                $helpfulMessage = "Database authentication failed. Check username and password.";
+            } elseif (strpos($errorMessage, 'does not exist') !== false) {
+                $helpfulMessage = "Database does not exist. Check database name.";
+            } elseif (strpos($errorMessage, 'could not resolve hostname') !== false) {
+                $helpfulMessage = "Cannot resolve database hostname. Check database host configuration.";
+            }
+            
+            throw new Exception($helpfulMessage . " (Details: " . $errorMessage . ")");
+        } catch (Exception $e) {
+            error_log("Database connection error: " . $e->getMessage());
+            throw $e;
         }
     }
     

@@ -29,15 +29,23 @@ class AuthController
             return ApiResponse::error('Please enter both username/email and password', 400);
         }
         
-        $result = Auth::login($usernameOrEmail, $password);
-        
-        if ($result['success']) {
-            return ApiResponse::success([
-                'user' => $result['user'] ?? Auth::user()
-            ], 'Login successful')->setQueries(Model::getQueries());
+        try {
+            $result = Auth::login($usernameOrEmail, $password);
+            
+            if ($result['success']) {
+                return ApiResponse::success([
+                    'user' => $result['user'] ?? Auth::user()
+                ], 'Login successful')->setQueries(Model::getQueries());
+            }
+            
+            return ApiResponse::error($result['error'] ?? 'Login failed', 401);
+        } catch (Exception $e) {
+            // If it's a database connection error, provide helpful message
+            if (strpos($e->getMessage(), 'Database connection') !== false) {
+                return ApiResponse::error($e->getMessage(), 500);
+            }
+            throw $e;
         }
-        
-        return ApiResponse::error($result['error'] ?? 'Login failed', 401);
     }
     
     /**

@@ -107,7 +107,8 @@
         function attemptApiLogin(username, password) {
             console.log('🌐 Attempting API login...');
             
-            fetch('/api/auth/login', {
+            // Use .php extension for physical file endpoint (works without .htaccess rewrites)
+            fetch('/api/auth/login.php', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
