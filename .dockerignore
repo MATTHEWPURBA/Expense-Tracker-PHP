@@ -1,0 +1,71 @@
+# Git files
+.git
+.gitignore
+.gitattributes
+
+# Documentation
+README.md
+*.md
+docs/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+config.old.php
+# Note: config.php is included - it uses environment variables
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Dependencies (will be installed during build)
+vendor/
+node_modules/
+
+# Build files
+Dockerfile
+.dockerignore
+docker-compose.yml
+render.yaml
+
+# Logs
+*.log
+logs/
+
+# Data files (sensitive)
+data/*.json
+data/expenses.json
+data/categories.json
+users.json
+users (1).json
+
+# Temporary files
+tmp/
+temp/
+cache/
+
+# OS files
+Thumbs.db
+.DS_Store
+
+# Test files
+tests/
+*.test.php
+phpunit.xml
+
+# Old architecture backup
+old-architecture-backup*/
+
+# Local development files
+serve
+stop
+check
+manage.sh
+setup.sh
+show-logs
+
